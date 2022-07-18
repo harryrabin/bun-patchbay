@@ -1,20 +1,10 @@
 // Local
 type RouteInput = string | RegExp;
-enum RouteInputType {
-    Patch,
-    Router
-}
-
-function parseRoute(route: RouteInput, routeType: RouteInputType): RegExp {
+function parseRoute(route: RouteInput): RegExp {
     if (route instanceof RegExp) return route;
 
-    let _temp = route.replace(/\/$/, "/?$");
-    switch (routeType) {
-        case RouteInputType.Patch:
-            return new RegExp(_temp)
-        default:
-            return null
-    }
+    let temp = route.replace(/\/$/, "/?$");
+    return new RegExp("^" + temp)
 }
 
 // Exports
@@ -23,12 +13,12 @@ export class PBRequest {
     private readonly __raw: Request;
     readonly url: string;
 
-    constructor(req: Request, overrideURL?: string) {
-        this.__raw = req;
+    constructor(req: Request | PBRequest, overrideURL?: string) {
+        this.__raw = req instanceof PBRequest ? req.raw() : req
         this.url = overrideURL || req.url
     }
 
-    getRaw(): Request {
+    raw(): Request {
         return this.__raw.clone()
     }
 }
@@ -40,10 +30,10 @@ export interface Patchable {
 
 export abstract class Patch implements Patchable {
     readonly route: RegExp;
-    failedEntryResponse: Response = new Response(null, {status: 400})
+    abstract failedEntryResponse: Response
 
     constructor(route: RouteInput) {
-        this.route = parseRoute(route, RouteInputType.Patch)
+        this.route = parseRoute(route)
     }
 
     abstract entry(req: PBRequest);
@@ -59,27 +49,65 @@ export abstract class Patch implements Patchable {
     }
 }
 
-export class StaticPatch {
+export class StaticPatch extends Patch {
+    readonly response: Response
+    constructor(options: {
+        route: RouteInput,
+        response: Response
+    }) {
+        super(options.route);
+        this.response = options.response;
+    }
 
+    failedEntryResponse = null;
+    entry(req: PBRequest) {}
+    exit(): Response {return this.response.clone()}
 }
 
-export type RedirectOptions = {
-    route: RouteInput,
-    to: string
+export class GlobalRedirect extends Patch {
+    private readonly to: string;
+    constructor(route: RouteInput, to: string) {
+        super(route);
+        this.to = to;
+    }
+
+    failedEntryResponse = null
+    entry(req: PBRequest) {}
+    exit(): Response {
+        return Response.redirect(this.to)
+    }
 }
+
+// export class LocalRedirect extends Patch {
+//     protected readonly to: string;
+//     protected context: string;
+//     constructor(route: RouteInput, to: string) {
+//         super(route);
+//         this.to = to;
+//     }
+//
+//     failedEntryResponse = null;
+//     entry(req: PBRequest) {
+//         this.context = req.url
+//     }
+//     exit(): Response {
+//         let temp = this.context.replace(/\/?[^\/]*$/, this.to);
+//     }
+// }
 
 export abstract class Router implements Patchable {
     readonly route: RegExp;
     abstract readonly patches: Patchable[];
     abstract readonly defaultResponse: Response;
 
-    protected constructor(route: RouteInput) {
-        this.route = parseRoute(route, RouteInputType.Router)
+    constructor(route: RouteInput) {
+        this.route = parseRoute(route)
     }
 
     __send(req: PBRequest): Response {
         const rte = req.url.replace(this.route, "");
-        for (let p of this.patches) if (p.route.test(rte)) return p.__send(req);
+        for (let p of this.patches) if (p.route.test(rte))
+            return p.__send(new PBRequest(req, rte));
         return this.defaultResponse.clone();
     }
 }

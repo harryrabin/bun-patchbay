@@ -1,18 +1,22 @@
 import mainBay from "./bay"
-import {Router} from "./lib/patchbay";
+import {Router, PBRequest} from "./lib/patchbay";
 
-const baseURL = "http://localhost:3000";
-
-function __pbRoute(req: Request): Response {
-    const rte = req.url.replace(baseURL, "");
-    for (let p of patches) if (p.route.test(rte)) return p.__send(req);
-    return new Response("illegal route", {status: 400});
+declare global {
+    const PB_baseURL: string
+    const PB_port: number
 }
+export const PB_baseURL = mainBay.baseURL;
+export const PB_port = mainBay.port;
 
+class MainRouter extends Router {
+    patches = mainBay.patches
+    defaultResponse = new Response("404 not found", {status: 404})
+}
+const router = new MainRouter(PB_baseURL)
 const server = Bun.serve({
-    port: 3000,
+    port: PB_port,
     fetch(req: Request): Response {
-        return __pbRoute(req);
+        return router.__send(new PBRequest(req));
     }
 });
 
