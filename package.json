@@ -1,0 +1,17 @@
+{
+  "name": "patchbay_v1",
+  "version": "1.0.0",
+  "description": "",
+  "main": "launch.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.6",
+    "bun-types": "^0.1.4"
+  }
+}

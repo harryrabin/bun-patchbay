@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "sourceMap": true,
+    "lib": ["ESNext"],
+    "module": "esnext",
+    "target": "esnext",
+    "types": ["bun-types", "node"]
+  },
+  "exclude": [
+    "node_modules"
+  ],
+}
