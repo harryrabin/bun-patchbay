@@ -160,7 +160,10 @@ export class StaticAssetRouter extends Router {
             patches.push(new StaticPatch({
                 route: `/${item.name}`,
                 response: new Response(Bun.file(path.join(options.directory, item.name)), {
-                    headers: patchHeaders
+                    headers: {
+                        "Content-Type": mimeExtensions.includes(itemExtname) ?
+                            mimeTypes[itemExtname] : "application/octet-stream"
+                    }
                 })
             }));
 
