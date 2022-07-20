@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
-// Local
+// Utilities
 
 type RouteInput = string | RegExp
 function parseRoute(route: RouteInput, router: boolean = false): RegExp {
@@ -16,11 +16,8 @@ function extractResponse(res: DefaultResponse): Response {
         res.clone() : res()
 }
 
-const inlineContentTypes = {
-    ".html": "text/html; charset=UTF-8",
-    ".png": "image/png",
-}
-const inlineContentKeys = Object.keys(inlineContentTypes)
+import mimeTypes from "./mime-types";
+const mimeExtensions = Object.keys(mimeTypes)
 
 // Exports
 
@@ -156,9 +153,9 @@ export class StaticAssetRouter extends Router {
             const itemExtname = path.extname(item.name)
 
             let patchHeaders = {}
-            if (inlineContentKeys.includes(itemExtname)) {
-                patchHeaders["Content-Disposition"] = `inline; filename="${item.name}"`;
-                patchHeaders["Content-Type"] = inlineContentTypes[itemExtname];
+            if (mimeExtensions.includes(itemExtname)) {
+                // patchHeaders["Content-Disposition"] = `inline; filename="${item.name}"`;
+                patchHeaders["Content-Type"] = mimeTypes[itemExtname];
             }
             patches.push(new StaticPatch({
                 route: `/${item.name}`,
