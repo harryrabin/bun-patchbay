@@ -164,12 +164,10 @@ export class StaticAssetRouter extends Router {
                 })
             }));
 
-            if (itemExtname === ".html") {
-                patches.push(new LocalRedirect(
-                    '/' + path.basename(item.name, ".html"),
-                    '/'+ item.name
-                ));
-            }
+            if (itemExtname === ".html") patches.push(new LocalRedirect(
+                '/' + path.basename(item.name, ".html"),
+                '/' + item.name
+            ));
 
             if (item.name === "index.html") patches.push(new LocalRedirect("/", "/index.html"));
         }
