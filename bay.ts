@@ -5,7 +5,7 @@ export default {
     port: 3000,
     patches: [
         new StaticAssetRouter({
-            route: "",
+            route: "/",
             directory: "./static-content",
             defaultResponse: new Response("404 not found in static", {status: 404})
         })

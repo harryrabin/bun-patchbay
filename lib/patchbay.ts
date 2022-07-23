@@ -3,21 +3,16 @@ import * as path from "path";
 
 // Utilities
 
-type RouteInput = string | RegExp
-function parseRoute(route: RouteInput, router: boolean = false): RegExp {
-    if (route instanceof RegExp) return route;
-    // let temp = route.replace(/\/$/, "/?$")
-    return new RegExp("^" + route + (router ? "" : "$"))
-}
-
 type DefaultResponse = Response | (() => Response)
+
 function extractResponse(res: DefaultResponse): Response {
     return res instanceof Response ?
         res.clone() : res()
 }
 
 import mimeTypes from "./mime-types";
-const mimeExtensions = Object.keys(mimeTypes)
+
+const mimeExtensions = Object.keys(mimeTypes);
 
 // Exports
 
@@ -35,21 +30,45 @@ export class PBRequest {
     }
 }
 
+export class PBRoute {
+    readonly str: string;
+    readonly re: RegExp;
+
+    private constructor(route: string, router: boolean) {
+        this.str = route;
+
+        // let temp = route.replace(/\/$/, "/?$")
+        if (route === "/") this.re = new RegExp("^\/$");
+        else this.re = RegExp("^" + route + (router ? "" : "/$"));
+    }
+
+    static newPatch(route: string): PBRoute {
+        return new PBRoute(route, false);
+    }
+
+    static newRouter(route: string): PBRoute {
+        return new PBRoute(route, true);
+    }
+}
+
 export interface Patchable {
-    readonly route: RegExp;
+    readonly route: PBRoute;
+
     __send(req: PBRequest): Response;
 }
 
 export abstract class Patch implements Patchable {
-    readonly route: RegExp;
+    readonly route: PBRoute;
     abstract failedEntryResponse: DefaultResponse
 
-    constructor(route: RouteInput) {
-        this.route = parseRoute(route)
+    protected constructor(route: string) {
+        this.route = PBRoute.newPatch(route)
     }
 
     abstract entry(req: PBRequest);
+
     abstract exit(): Response;
+
     __send(req: PBRequest): Response {
         try {
             this.entry(req);
@@ -63,8 +82,9 @@ export abstract class Patch implements Patchable {
 
 export class StaticPatch extends Patch {
     readonly response: DefaultResponse
+
     constructor(options: {
-        route: RouteInput,
+        route: string,
         response: DefaultResponse
     }) {
         super(options.route);
@@ -72,19 +92,28 @@ export class StaticPatch extends Patch {
     }
 
     failedEntryResponse = null;
-    entry(req: PBRequest) {}
-    exit(): Response {return extractResponse(this.response)}
+
+    entry(req: PBRequest) {
+    }
+
+    exit(): Response {
+        return extractResponse(this.response)
+    }
 }
 
 export class GlobalRedirect extends Patch {
     private readonly to: string;
-    constructor(route: RouteInput, to: string) {
+
+    constructor(route: string, to: string) {
         super(route);
         this.to = to;
     }
 
     failedEntryResponse = null
-    entry(req: PBRequest) {}
+
+    entry(req: PBRequest) {
+    }
+
     exit(): Response {
         return Response.redirect(this.to)
     }
@@ -92,35 +121,43 @@ export class GlobalRedirect extends Patch {
 
 export class LocalRedirect extends Patch {
     private readonly to: string;
-    private context: string;
+    private finalTo: string;
 
-    constructor(route: RouteInput, to: string) {
+    constructor(route: string, to: string) {
         super(route);
         this.to = to;
     }
 
-    failedEntryResponse = null;
+    failedEntryResponse = null
+
     entry(req: PBRequest) {
-        this.context = req.raw().url.replace(PB_baseURL, "")
+        this.finalTo = req.raw().url;
+        this.finalTo = this.finalTo.replace(/\/$/, "");
+        this.finalTo += this.to;
     }
+
     exit(): Response {
-        return Response.redirect(this.context.replace(/\/[^\/]*$/, this.to))
+        return Response.redirect(this.finalTo)
     }
 }
 
 export abstract class Router implements Patchable {
-    readonly route: RegExp;
+    readonly route: PBRoute;
     abstract readonly patches: Patchable[];
     abstract readonly defaultResponse: Response | (() => Response);
 
-    constructor(route: RouteInput) {
-        this.route = parseRoute(route, true)
+    constructor(route: string) {
+        this.route = PBRoute.newRouter(route)
     }
 
     __send(req: PBRequest): Response {
-        const rte = req.url.replace(this.route, "");
-        for (let p of this.patches) if (p.route.test(rte))
+        let rte = req.url.replace(this.route.re, "");
+        if (rte === "") rte = "/";
+        console.log("Searching for: " + rte + " in: " + this.patches.map($ => $.route));
+        for (let p of this.patches) if (p.route.re.test(rte)) {
+            console.log("Success: " + p.route)
             return p.__send(new PBRequest(req, rte));
+        }
 
         return extractResponse(this.defaultResponse)
     }
@@ -131,7 +168,7 @@ export class StaticAssetRouter extends Router {
     readonly defaultResponse: DefaultResponse;
 
     constructor(options: {
-        route: RouteInput,
+        route: string,
         directory: string,
         defaultResponse: DefaultResponse
     }) {
@@ -152,11 +189,6 @@ export class StaticAssetRouter extends Router {
 
             const itemExtname = path.extname(item.name)
 
-            let patchHeaders = {}
-            if (mimeExtensions.includes(itemExtname)) {
-                // patchHeaders["Content-Disposition"] = `inline; filename="${item.name}"`;
-                patchHeaders["Content-Type"] = mimeTypes[itemExtname];
-            }
             patches.push(new StaticPatch({
                 route: `/${item.name}`,
                 response: new Response(Bun.file(path.join(options.directory, item.name)), {
@@ -175,6 +207,7 @@ export class StaticAssetRouter extends Router {
             if (item.name === "index.html") patches.push(new LocalRedirect("/", "/index.html"));
         }
 
+        console.log(patches.map(p => p.route));
         this.patches = patches;
     }
 }
