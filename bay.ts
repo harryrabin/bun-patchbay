@@ -1,4 +1,4 @@
-import {StaticAssetRouter} from "./lib/patchbay";
+import {LocalRedirect, StaticAssetRouter} from "./lib/patchbay";
 
 export default {
     baseURL: "http://localhost:3000",
