@@ -1,6 +1,5 @@
 // source: https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
-
-export default {
+const types: Record<string, string> = {
 // AAC audio
     ".aac": "audio/aac",
 // AbiWord document
@@ -152,3 +151,5 @@ export default {
 // 7-zip archive
     ".7z": "application/x-7z-compressed",
 }
+
+export default types;
