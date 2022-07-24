@@ -30,18 +30,18 @@ export class PBRequest {
 }
 
 export class Route {
+    private static readonly paramRegExp = /\{([^}]+)}/gi;
+
     readonly str: string;
     readonly re: RegExp;
     readonly routeParameterNames: string[] = null;
-
-    private static readonly paramRegExp = /\{([^}]+)}/gi;
 
     constructor(route: string, routeType: "patch" | "router") {
         this.str = route;
 
         if (routeType === "router") {
             if (route === "/") this.re = new RegExp("^(?=.*/$)", "i");
-            else this.re = RegExp("^" + route + "(?=.*/$)", "i");
+            else this.re = new RegExp("^" + route + "(?=.*/$)", "i");
             return;
         }
 
@@ -54,7 +54,7 @@ export class Route {
             }
 
             const formattedRoute = route.replace(Route.paramRegExp, "(.+)");
-            this.re = RegExp("^" + formattedRoute + "/$", "i");
+            this.re = new RegExp("^" + formattedRoute + "/$", "i");
         }
     }
 }
