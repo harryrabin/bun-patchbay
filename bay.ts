@@ -12,15 +12,23 @@ class UserPage extends Patch {
     }
 }
 
+class CatchallPage extends Patch {
+    readonly failedEntryResponse = undefined;
+
+    entry(req: PBRequest) {
+        this.parseRouteParams(req.url);
+    }
+
+    exit(): Response {
+        return new Response("Catchall page for " + this.routeParameters.user)
+    }
+}
+
 export default {
     baseURL: "http://localhost:3000",
     port: 3000,
     patches: [
-        new UserPage("/pages{queryString}"),
-        new StaticAssetRouter({
-            route: "/",
-            directory: "./static-content",
-            defaultResponse: new Response("404 not found in static", {status: 404})
-        })
+        new StaticAssetRouter("/","./static-content"),
+        new CatchallPage("/{user}")
     ]
 }

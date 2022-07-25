@@ -2,16 +2,13 @@ import * as fs from "fs";
 import * as path from "path";
 
 // Utilities
-
-type RouteParameters = Record<string, string>;
+import mimeTypes from "./mime-types";
 
 type DefaultResponse = Response | (() => Response);
 
 function extractResponse(res: DefaultResponse): Response {
     return res instanceof Response ? res.clone() : res()
 }
-
-import mimeTypes from "./mime-types";
 
 // Exports
 
@@ -34,7 +31,7 @@ export class Route {
 
     readonly str: string;
     readonly re: RegExp;
-    readonly routeParameterNames: string[] = null;
+    readonly routeParameterNames: string[] = [];
 
     constructor(route: string, routeType: "patch" | "router") {
         this.str = route;
@@ -67,15 +64,15 @@ export interface Patchable {
 
 export abstract class Patch implements Patchable {
     readonly route: Route;
-    routeParameters: RouteParameters = {};
-
-    abstract readonly failedEntryResponse: DefaultResponse
+    readonly failedEntryResponse?: DefaultResponse
+    routeParameters: Record<string, string> = {};
+    queryStringParameters: Record<string, string> = {};
 
     constructor(route: string) {
         this.route = new Route(route, "patch")
     }
 
-    abstract entry(req: PBRequest);
+    abstract entry(req: PBRequest): void;
 
     abstract exit(): Response;
 
@@ -83,7 +80,10 @@ export abstract class Patch implements Patchable {
         try {
             this.entry(req);
         } catch (e) {
-            if (e instanceof FailedEntry) return extractResponse(this.failedEntryResponse)
+            if (e instanceof FailedEntry) {
+                if (this.failedEntryResponse) return extractResponse(this.failedEntryResponse)
+                else throw e;
+            }
             else throw e;
         }
         return this.exit()
@@ -97,7 +97,7 @@ export abstract class Patch implements Patchable {
     parseRouteParams(url: string) {
         this.routeParameters = {}
         const urlMatches = url.match(this.route.re);
-        if (urlMatches.length <= 1) return;
+        if (!urlMatches || urlMatches.length <= 1) return;
         for (let i = 0; i < this.route.routeParameterNames.length; i++) {
             this.routeParameters[this.route.routeParameterNames[i]] = urlMatches[i + 1]
         }
@@ -105,7 +105,7 @@ export abstract class Patch implements Patchable {
 }
 
 export class StaticPatch extends Patch {
-    readonly response: DefaultResponse
+    readonly response: DefaultResponse;
 
     constructor(options: {
         route: string,
@@ -114,8 +114,6 @@ export class StaticPatch extends Patch {
         super(options.route);
         this.response = options.response;
     }
-
-    failedEntryResponse = null;
 
     entry(req: PBRequest) {
     }
@@ -133,8 +131,6 @@ export class GlobalRedirect extends Patch {
         this.to = to;
     }
 
-    failedEntryResponse = null
-
     entry(req: PBRequest) {
     }
 
@@ -146,15 +142,13 @@ export class GlobalRedirect extends Patch {
 export class LocalRedirect extends Patch {
     private readonly to: string;
     private readonly filter: RegExp;
-    private finalTo: string = null;
+    private finalTo = "";
 
     constructor(route: string, to: string) {
         super(route);
         this.filter = new RegExp(route + (route === "/" ? "$" : "/$"))
         this.to = to;
     }
-
-    failedEntryResponse = null
 
     entry(req: PBRequest) {
         this.finalTo = req.raw().url;
@@ -170,7 +164,7 @@ export class LocalRedirect extends Patch {
 export abstract class Router implements Patchable {
     readonly route: Route;
     abstract readonly patches: Patchable[];
-    abstract readonly defaultResponse: Response | (() => Response);
+    abstract readonly defaultResponse?: DefaultResponse;
 
     constructor(route: string) {
         this.route = new Route(route, "router");
@@ -179,38 +173,39 @@ export abstract class Router implements Patchable {
     __send(req: PBRequest): Response {
         let rte = req.url.replace(this.route.re, "");
         if (rte === "") rte = "/";
-        for (let p of this.patches) if (p.route.re.test(rte))
-            return p.__send(new PBRequest(req, rte));
-        return extractResponse(this.defaultResponse);
+        for (let p of this.patches) if (p.route.re.test(rte)) {
+            try {
+                return p.__send(new PBRequest(req, rte));
+            } catch (e) {
+                if (!(e instanceof RouteNotFound)) throw e;
+            }
+        }
+        if (this.defaultResponse) return extractResponse(this.defaultResponse);
+        else throw new RouteNotFound();
     }
 }
 
 export class StaticAssetRouter extends Router {
     readonly patches: Patchable[] = [];
-    readonly defaultResponse: DefaultResponse;
+    readonly defaultResponse?: DefaultResponse;
 
-    constructor(options: {
-        route: string,
-        directory: string,
-        defaultResponse: DefaultResponse,
+    constructor(route: string, directory: string, options: {
+        defaultResponse?: DefaultResponse,
         excludeFiles?: string[],
         customPatches?: Patchable[]
-    }) {
-        super(options.route);
+    } = {}) {
+        super(route);
         this.defaultResponse = options.defaultResponse;
 
-        if (options.customPatches) this.patches.push(...options.customPatches);
-
         const excludeFiles = options.excludeFiles || [];
-        const dirContents = fs.readdirSync(options.directory, {withFileTypes: true});
+        const dirContents = fs.readdirSync(directory, {withFileTypes: true});
         for (let item of dirContents) {
             if (excludeFiles.includes(item.name)) continue;
 
             if (item.isDirectory()) {
-                this.patches.push(new StaticAssetRouter({
-                    route: '/' + item.name,
-                    directory: path.join(options.directory, item.name),
-                    defaultResponse: options.defaultResponse
+                this.patches.push(
+                    new StaticAssetRouter('/' + item.name, path.join(directory, item.name), {
+                        defaultResponse: this.defaultResponse
                 }));
                 continue;
             }
@@ -219,7 +214,7 @@ export class StaticAssetRouter extends Router {
 
             this.patches.push(new StaticPatch({
                 route: `/${item.name}`,
-                response: new Response(Bun.file(path.join(options.directory, item.name)), {
+                response: new Response(Bun.file(path.join(directory, item.name)), {
                     headers: {
                         "Content-Type": itemExtname in mimeTypes ?
                             mimeTypes[itemExtname] : "application/octet-stream"
@@ -234,9 +229,15 @@ export class StaticAssetRouter extends Router {
 
             if (item.name === "index.html") this.patches.push(new LocalRedirect("/", "/index.html"));
         }
+
+        if (options.customPatches) this.patches.push(...options.customPatches);
     }
 }
 
 export class FailedEntry extends Error {
+
+}
+
+export class RouteNotFound extends Error {
 
 }
