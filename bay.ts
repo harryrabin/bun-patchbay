@@ -1,8 +1,6 @@
 import {Patch, PBRequest, StaticAssetRouter} from "./lib/patchbay";
 
 class UserPage extends Patch {
-    readonly failedEntryResponse = undefined;
-
     entry(req: PBRequest) {
         this.parseRouteParams(req.url);
         this.parseQueryString();

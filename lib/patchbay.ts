@@ -4,6 +4,8 @@ import * as path from "path";
 // Utilities
 import mimeTypes from "./mime-types";
 
+type ParameterStore = Record<string, string | undefined>;
+
 type DefaultResponse = Response | (() => Response);
 
 function extractResponse(res: DefaultResponse): Response {
@@ -67,8 +69,8 @@ export interface Patchable {
 export abstract class Patch implements Patchable {
     readonly route: Route;
     readonly failedEntryResponse?: DefaultResponse;
-    routeParameters: Record<string, string> = {};
-    queryStringParameters: Record<string, string> = {};
+    routeParameters: ParameterStore = {};
+    queryStringParameters: ParameterStore = {};
 
     constructor(route: string) {
         this.route = new Route(route, "patch");
@@ -82,10 +84,8 @@ export abstract class Patch implements Patchable {
         try {
             this.entry(req);
         } catch (e) {
-            if (e instanceof FailedEntry) {
-                if (this.failedEntryResponse) return extractResponse(this.failedEntryResponse);
-                else throw e;
-            }
+            if (e instanceof FailedEntry && this.failedEntryResponse)
+                return extractResponse(this.failedEntryResponse);
             else throw e;
         }
         return this.exit();
@@ -93,7 +93,7 @@ export abstract class Patch implements Patchable {
 
     parseQueryString() {
         this.queryStringParameters = {};
-        if (!("queryString" in this.routeParameters)) return;
+        if (!this.routeParameters.queryString) return;
         const entries = this.routeParameters.queryString
             .split("&")
             .map($ => $.split("="));
@@ -222,8 +222,7 @@ export class StaticAssetRouter extends Router {
                 route: "/" + item.name,
                 response: new Response(Bun.file(path.join(directory, item.name)), {
                     headers: {
-                        "Content-Type": itemExtname in mimeTypes ?
-                            mimeTypes[itemExtname] : "application/octet-stream"
+                        "Content-Type": mimeTypes[itemExtname] || "application/octet-stream"
                     }
                 })
             }));

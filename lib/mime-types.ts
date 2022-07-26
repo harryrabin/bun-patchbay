@@ -1,5 +1,6 @@
 // source: https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
-const types: Record<string, string> = {
+
+const types: Record<string, string | undefined> = {
 // AAC audio
     ".aac": "audio/aac",
 // AbiWord document
