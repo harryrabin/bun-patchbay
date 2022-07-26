@@ -12,7 +12,7 @@ global.PB_port = mainBay.port;
 
 class MainRouter extends Router {
     patches = mainBay.patches
-    defaultResponse = new Response("404 not found in main", {status: 404})
+    defaultResponse = new Response("404: not found", {status: 404})
 }
 
 const router = new MainRouter(PB_baseURL)

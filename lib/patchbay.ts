@@ -7,7 +7,7 @@ import mimeTypes from "./mime-types";
 type DefaultResponse = Response | (() => Response);
 
 function extractResponse(res: DefaultResponse): Response {
-    return res instanceof Response ? res.clone() : res()
+    return res instanceof Response ? res.clone() : res();
 }
 
 // Exports
@@ -17,40 +17,42 @@ export class PBRequest {
     readonly url: string;
 
     constructor(req: Request | PBRequest, overrideURL?: string) {
-        this.__raw = req instanceof PBRequest ? req.raw() : req
-        this.url = overrideURL || req.url
+        this.__raw = req instanceof PBRequest ? req.raw() : req;
+        this.url = overrideURL || req.url;
     }
 
     raw(): Request {
-        return this.__raw.clone()
+        return this.__raw.clone();
     }
 }
 
 export class Route {
     private static readonly paramRegExp = /\{([^}]+)}/gi;
 
-    readonly str: string;
+    // readonly str: string;
     readonly re: RegExp;
-    readonly routeParameterNames: string[] = [];
+    readonly parameterNames: string[] = [];
 
     constructor(route: string, routeType: "patch" | "router") {
-        this.str = route;
+        // this.str = route;
+
+        const rte = route
+            .replace("?", "\\?")
 
         if (routeType === "router") {
-            if (route === "/") this.re = new RegExp("^(?=.*/$)", "i");
-            else this.re = new RegExp("^" + route + "(?=.*/$)", "i");
+            if (rte === "/") this.re = new RegExp("^(?=.*/$)", "i");
+            else this.re = new RegExp("^" + rte + "(?=.*/$)", "i");
             return;
         }
 
-        if (route === "/") this.re = new RegExp("^/$", "i");
+        if (rte === "/") this.re = new RegExp("^/$", "i");
         else {
-            const paramMatches = route.matchAll(Route.paramRegExp);
+            const paramMatches = rte.matchAll(Route.paramRegExp);
             if (paramMatches != null) {
-                this.routeParameterNames = [];
-                for (const match of paramMatches) this.routeParameterNames.push(match[1]);
+                for (const match of paramMatches) this.parameterNames.push(match[1]);
             }
 
-            const formattedRoute = route.replace(Route.paramRegExp, "(.+)");
+            const formattedRoute = rte.replace(Route.paramRegExp, "(.+)");
             this.re = new RegExp("^" + formattedRoute + "/$", "i");
         }
     }
@@ -64,12 +66,12 @@ export interface Patchable {
 
 export abstract class Patch implements Patchable {
     readonly route: Route;
-    readonly failedEntryResponse?: DefaultResponse
+    readonly failedEntryResponse?: DefaultResponse;
     routeParameters: Record<string, string> = {};
     queryStringParameters: Record<string, string> = {};
 
     constructor(route: string) {
-        this.route = new Route(route, "patch")
+        this.route = new Route(route, "patch");
     }
 
     abstract entry(req: PBRequest): void;
@@ -81,25 +83,34 @@ export abstract class Patch implements Patchable {
             this.entry(req);
         } catch (e) {
             if (e instanceof FailedEntry) {
-                if (this.failedEntryResponse) return extractResponse(this.failedEntryResponse)
+                if (this.failedEntryResponse) return extractResponse(this.failedEntryResponse);
                 else throw e;
             }
             else throw e;
         }
-        return this.exit()
+        return this.exit();
     }
 
-    // TODO
-    // parseQueryString(query: string): object {
-    //     let output = {}
-    // }
+    parseQueryString() {
+        this.queryStringParameters = {};
+        if (!("queryString" in this.routeParameters)) return;
+        const entries = this.routeParameters.queryString
+            .replace(/^\?/, "")
+            .split("&")
+            .map($ => $.split("="));
+        for (let e of entries) {
+            if (e.length !== 2) continue;
+            if (e[0] === "") continue;
+            this.queryStringParameters[e[0]] = e[1];
+        }
+    }
 
     parseRouteParams(url: string) {
         this.routeParameters = {}
         const urlMatches = url.match(this.route.re);
         if (!urlMatches || urlMatches.length <= 1) return;
-        for (let i = 0; i < this.route.routeParameterNames.length; i++) {
-            this.routeParameters[this.route.routeParameterNames[i]] = urlMatches[i + 1]
+        for (let i = 0; i < this.route.parameterNames.length; i++) {
+            this.routeParameters[this.route.parameterNames[i]] = urlMatches[i + 1];
         }
     }
 }
@@ -146,18 +157,18 @@ export class LocalRedirect extends Patch {
 
     constructor(route: string, to: string) {
         super(route);
-        this.filter = new RegExp(route + (route === "/" ? "$" : "/$"))
+        this.filter = new RegExp(route + (route === "/" ? "$" : "/$"));
         this.to = to;
     }
 
     entry(req: PBRequest) {
         this.finalTo = req.raw().url;
-        if (this.finalTo.slice(-1) !== "/") this.finalTo += "/";
+        if (this.finalTo.at(-1) !== "/") this.finalTo += "/";
         this.finalTo = this.finalTo.replace(this.filter, this.to);
     }
 
     exit(): Response {
-        return Response.redirect(this.finalTo)
+        return Response.redirect(this.finalTo);
     }
 }
 
@@ -173,7 +184,7 @@ export abstract class Router implements Patchable {
     __send(req: PBRequest): Response {
         let rte = req.url.replace(this.route.re, "");
         if (rte === "") rte = "/";
-        for (let p of this.patches) if (p.route.re.test(rte)) {
+        for (const p of this.patches) if (p.route.re.test(rte)) {
             try {
                 return p.__send(new PBRequest(req, rte));
             } catch (e) {
@@ -191,40 +202,36 @@ export class StaticAssetRouter extends Router {
 
     constructor(route: string, directory: string, options: {
         defaultResponse?: DefaultResponse,
-        excludeFiles?: string[],
         customPatches?: Patchable[]
     } = {}) {
         super(route);
         this.defaultResponse = options.defaultResponse;
 
-        const excludeFiles = options.excludeFiles || [];
         const dirContents = fs.readdirSync(directory, {withFileTypes: true});
-        for (let item of dirContents) {
-            if (excludeFiles.includes(item.name)) continue;
-
+        for (const item of dirContents) {
             if (item.isDirectory()) {
                 this.patches.push(
-                    new StaticAssetRouter('/' + item.name, path.join(directory, item.name), {
+                    new StaticAssetRouter("/" + item.name, path.join(directory, item.name), {
                         defaultResponse: this.defaultResponse
                 }));
                 continue;
             }
 
-            const itemExtname = path.extname(item.name)
+            const itemExtname = path.extname(item.name);
 
             this.patches.push(new StaticPatch({
-                route: `/${item.name}`,
+                route: "/" + item.name,
                 response: new Response(Bun.file(path.join(directory, item.name)), {
                     headers: {
                         "Content-Type": itemExtname in mimeTypes ?
                             mimeTypes[itemExtname] : "application/octet-stream"
                     }
-                }),
+                })
             }));
 
             if (itemExtname === ".html") this.patches.push(new LocalRedirect(
-                '/' + path.basename(item.name, ".html"),
-                '/' + item.name
+                "/" + path.basename(item.name, ".html"),
+                "/" + item.name
             ));
 
             if (item.name === "index.html") this.patches.push(new LocalRedirect("/", "/index.html"));
