@@ -38,23 +38,20 @@ export class Route {
     constructor(route: string, routeType: "patch" | "router") {
         // this.str = route;
 
-        const rte = route
-            .replace("?", "\\?")
-
         if (routeType === "router") {
-            if (rte === "/") this.re = new RegExp("^(?=.*/$)", "i");
-            else this.re = new RegExp("^" + rte + "(?=.*/$)", "i");
+            if (route === "/") this.re = new RegExp("^(?=.*/$)", "i");
+            else this.re = new RegExp("^" + route + "(?=.*/$)", "i");
             return;
         }
 
-        if (rte === "/") this.re = new RegExp("^/$", "i");
+        if (route === "/") this.re = new RegExp("^/$", "i");
         else {
-            const paramMatches = rte.matchAll(Route.paramRegExp);
+            const paramMatches = route.matchAll(Route.paramRegExp);
             if (paramMatches != null) {
                 for (const match of paramMatches) this.parameterNames.push(match[1]);
             }
 
-            const formattedRoute = rte
+            const formattedRoute = route
                 .replace("{queryString}", "(?:\\?(.+))?")
                 .replace(Route.paramRegExp, "([^?]+)");
             this.re = new RegExp("^" + formattedRoute + "/$", "i");
@@ -93,6 +90,15 @@ export abstract class Patch implements Patchable {
         return this.exit();
     }
 
+    parseRouteParams(url: string) {
+        this.routeParameters = {}
+        const urlMatches = url.match(this.route.re);
+        if (!urlMatches || urlMatches.length <= 1) return;
+        for (let i = 0; i < this.route.parameterNames.length; i++) {
+            this.routeParameters[this.route.parameterNames[i]] = urlMatches[i + 1];
+        }
+    }
+
     parseQueryString() {
         this.queryStringParameters = {};
         if (!this.routeParameters.queryString) return;
@@ -103,15 +109,6 @@ export abstract class Patch implements Patchable {
             if (e.length !== 2) continue;
             if (e[0] === "") continue;
             this.queryStringParameters[e[0]] = e[1];
-        }
-    }
-
-    parseRouteParams(url: string) {
-        this.routeParameters = {}
-        const urlMatches = url.match(this.route.re);
-        if (!urlMatches || urlMatches.length <= 1) return;
-        for (let i = 0; i < this.route.parameterNames.length; i++) {
-            this.routeParameters[this.route.parameterNames[i]] = urlMatches[i + 1];
         }
     }
 }
