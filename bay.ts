@@ -4,10 +4,12 @@ class UserPage extends Patch {
     entry(req: PBRequest) {
         this.parseRouteParams(req.url);
         this.parseQueryString();
+        console.log("Route parameters: ", this.routeParameters);
+        console.log("Query string parameters: ", this.queryStringParameters);
     }
 
     exit(): Response {
-        return new Response("");
+        return new Response("User homepage for " + this.routeParameters.username);
     }
 }
 
@@ -16,6 +18,6 @@ export default {
     port: 3000,
     patches: [
         new StaticAssetRouter("/","./static-content"),
-        new UserPage("/{user}?{queryString}")
+        new UserPage("/{username}{queryString}")
     ]
 }

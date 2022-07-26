@@ -54,7 +54,9 @@ export class Route {
                 for (const match of paramMatches) this.parameterNames.push(match[1]);
             }
 
-            const formattedRoute = rte.replace(Route.paramRegExp, "(.+)");
+            const formattedRoute = rte
+                .replace("{queryString}", "(?:\\?(.+))?")
+                .replace(Route.paramRegExp, "([^?]+)");
             this.re = new RegExp("^" + formattedRoute + "/$", "i");
         }
     }
