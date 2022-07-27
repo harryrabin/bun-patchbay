@@ -22,7 +22,7 @@ roadmap).
 
 ```html
 <script type="text/javascript">
-    window.updateFromPBCookie=(()=>{let o=document.cookie.split("; ").find(o=>o.startsWith("__PBCookie="));if(!o)return;o=o.replace("__PBCookie=","");const e=JSON.parse(o);for(k in e)document.cookie=k+"="+e[k]}),updateFromPBCookie();
+    window.updateFromPBCookie=()=>{let o=document.cookie.split("; ").find(o=>o.startsWith("__PBCookie="));if(!o)return;o=o.replace("__PBCookie=","");const e=JSON.parse(o);for(k in e)document.cookie=k+"="+e[k]};updateFromPBCookie();
 </script>
 ```
 
