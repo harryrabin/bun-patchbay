@@ -3,7 +3,7 @@ While some platforms/environments have non-standard fixes for this, Bun sticks t
 limitation, PatchBay maintains a single cookie called `__PBCookie`, containing JSON text of all cookies.
 
 To automatically parse this and set the individual cookies client-side, you just need to add the following minimized
-snippet to your pages (a bundler script that rolls this in to your static assets with WebPack or similar is on the
+snippet to your pages (a bundler script that rolls this in to your static assets with WebPack is on the
 roadmap).
 
 ```js
