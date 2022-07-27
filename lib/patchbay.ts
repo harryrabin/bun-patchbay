@@ -105,7 +105,7 @@ export abstract class Patch implements Patchable {
         const entries = this.routeParameters.queryString
             .split("&")
             .map($ => $.split("="));
-        for (let e of entries) {
+        for (const e of entries) {
             if (e.length !== 2) continue;
             if (e[0] === "") continue;
             this.queryStringParameters[e[0]] = e[1];
