@@ -6,6 +6,6 @@ To automatically parse this and set the individual cookies client-side, you just
 snippet to your pages (a bundler script that rolls this in to your static assets with WebPack or similar is on the
 roadmap).
 
-'''js
+```js
 for(;;){let o=document.cookie.split("; ").find(o=>o.startsWith("__PBCookie="));if(!o)break;o=o.replace("__PBCookie=","");const e=JSON.parse(o);for(k in e)document.cookie=k+"="+e[k];break}
-'''
+```
