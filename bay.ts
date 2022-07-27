@@ -17,7 +17,7 @@ export default {
     baseURL: "http://localhost:3000",
     port: 3000,
     patches: [
-        new StaticAssetRouter("/","./static-content"),
+        new StaticAssetRouter("/", "./dist"),
         new UserPage("/{username}{queryString}")
     ]
 }

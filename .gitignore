@@ -1,6 +1,6 @@
 .DS_Store
 .idea
 node_modules
-static-content
+dist
 bun.lockb
 scratch.ts

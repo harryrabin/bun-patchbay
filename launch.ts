@@ -20,7 +20,7 @@ const server = Bun.serve({
     port: PB_port,
     fetch(req: Request): Response {
         let overrideURL = req.url
-        if (overrideURL.slice(-1) !== '/') overrideURL += '/';
+        if (overrideURL.at(-1) !== '/') overrideURL += '/';
         return router.__send(new PBRequest(req, overrideURL));
     }
 });
