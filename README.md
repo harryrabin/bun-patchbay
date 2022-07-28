@@ -67,13 +67,17 @@ you should leave everything that's already in there intact unless you really kno
 
 PatchBay supports cookies right out of the box... with an important caveat.
 
-As a current limitation of the Fetch specification, only a single `Set-Cookie` header can be set in a `Response`.
-While some platforms/environments have non-standard fixes for this, Bun sticks to the spec – so, to get around this
+A current limitation of the Fetch specification is that only a single `Set-Cookie` header can be set in a `Response`.
+While some runtimes have non-standard fixes for this, Bun sticks to the spec – so, to get around this
 limitation, PatchBay exposes a home-rolled and easy-to-use cookie API for you, which under the hood maintains a single
 cookie called `__PBCookie` containing JSON text of all the cookies you set.
 
-To parse this and set the individual cookies client-side, you just need to add the following snippet to the head of
-your HTML page (a bundler script that rolls this into your static assets with WebPack is on the roadmap).
+If you pack your static assets with PatchBay using the `launch` or `build` scripts, Webpack will inject the necessary
+code to keep cookies working on the client completely transparently, whether they are served by PatchBay or by a
+dedicated static asset host.
+
+However, for edge cases, this should not be insurmountable. For a simple solution, just add the following snippet to
+the head of your HTML page.
 
 ```html
 <script type="text/javascript">
@@ -93,10 +97,13 @@ This will parse `__PBCookie` on initial page load, and exposes a global function
 call at any time to parse it again if you have reason to believe it was updated (e.g. in the `.then()` of a fetch that
 may set cookies).
 
-Yeah... it's not ideal, but it's a simple enough fix and there are potential "real" fixes in the works. You may be
-interested in [this thread](https://github.com/whatwg/fetch/pull/1346), a proposal for a sensible long-term solution,
-and also the experimental [CookieChangeEvent](https://developer.mozilla.org/en-US/docs/Web/API/CookieChangeEvent),
-which would at least allow the above snippet to work hands-free in the background.
+While all of this should work without a hitch, both solutions feel a bit jury-rigged to me. There are potential "real"
+fixes in the works. You may be interested in [this thread](https://github.com/whatwg/fetch/pull/1346), a proposal for
+a sensible long-term solution, and also the experimental [CookieChangeEvent](https://developer.mozilla.org/en-US/docs/Web/API/CookieChangeEvent)
+API which would at least allow the above snippet to work hands-free in the background.
+
+<sup>Tip: If you want to roll your own solution, you may want to look at [*lib/client/cookie-inject.js*](lib/client/cookie-inject.js)
+for inspiration.</sup>
 
 With that out of the way, here's a reference on our cookie API:
 
