@@ -57,7 +57,7 @@ Then, things get interesting with `patches`. This is an array of any objects imp
 router will use to route top-level requests. Our only patchable in there right now is a `StaticAssetRouter`, a utility
 class that serves the assets inside a given directory (in this case `"./dist"`). Notice how we construct a new
 `StaticAssetRouter` anonymously, and it just lives in the array. This is how nearly all patchable components will be
-created. The first parameter we pass to the constructor is its route, `"/"`.
+created. The first parameter we pass to the constructor is its route, `"/"`. This means 
 
 The launch.ts file is what you'll use to run your app (`> bun launch.ts`). It sets globals and starts the Bun HTTP
 server. We encourage adding to it to customize your environment (making a database instance global, for example) – but

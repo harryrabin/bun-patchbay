@@ -6,6 +6,7 @@
     "target": "esnext",
     "types": ["bun-types", "node"],
     "strict": true,
+    "moduleResolution": "node"
   },
   "exclude": [
     "node_modules"

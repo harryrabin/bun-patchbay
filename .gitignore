@@ -4,3 +4,4 @@ node_modules
 dist
 bun.lockb
 scratch.ts
+static
