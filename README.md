@@ -71,10 +71,9 @@ While some runtimes have non-standard fixes for this, Bun sticks to the spec –
 limitation, PatchBay exposes a home-rolled and easy-to-use cookie API for you, which under the hood maintains a single
 cookie called `__PBCookie` containing JSON text of all the cookies you set.
 
-If you pack your static assets with PatchBay using the `launch` or `build` scripts, webpack's default config will
-inject the necessary code to keep cookies working on the client completely transparently, whether they are served by
-PatchBay or by a dedicated static asset host. See [Advanced Usage](#advanced-usage) for more details on webpack config
-with PatchBay.
+If you bundle your static assets with PatchBay using the `build` script, the included webpack config will inject the
+necessary code to keep cookies working on the client completely transparently, whether they are served by PatchBay or
+by a dedicated static asset host. See [Building](#building) for more details on webpack config with PatchBay.
 
 <sup>(To make the magic happen, PatchBay uses a little package called [cookie-interceptor](https://github.com/keqingrong/cookie-interceptor),
 which only supports a single instance; so, on the off chance you need to use it for your app, the instance is exposed
@@ -112,6 +111,32 @@ With that out of the way, here's a reference on our cookie API:
 
 ...
 
-## Advanced Usage
+## Building
+
+PatchBay does not require any kind of build phase to run. Bun has a JIT TypeScript compiler. The included build script
+is just a convenience script that:
+1. Clears out the dist folder
+2. Runs webpack for your static assets
+3. Runs `bun bun` to bundle your app's dependencies.
+
+We encourage modifying the build script to best suit your project. It won't break anything – we just wanted to include
+a sensible default that works for many projects out of the box.
 
 ### webpack
+
+As discussed in [cookies](#cookies), the default webpack configuration injects some code into your static JS to keep
+cookies working transparently. This is its main purpose, and why we recommend always bundling your assets with the
+included webpack config.
+
+It will also copy all files that aren't .js files from `/static` to `/dist` – that way, you'll never have to touch the
+`/dist` folder, you just build it and leave it alone. This is obviously not disk-efficient for certain larger projects,
+but it keeps things pretty and simple for projects without many static assets where the extra disk space is negligible.
+
+Although we recommend keeping the InjectPlugin config as-is (for obvious reasons), the rest of the config is yours to
+do with as you please.
+
+### bun bun
+
+Bun has a built-in dependency bundler that works similarly to webpack, but stores the bundled dependencies in an
+extremely efficient binary file called `node_modules.bun` that it will read from on launch instead of the
+`node_modules` directory. This has some obvious speed perks for your app, so we included it in the default build script.

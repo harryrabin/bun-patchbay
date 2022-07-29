@@ -5,12 +5,8 @@
   "main": "launch.ts",
   "scripts": {
     "build": "rm -r ./dist 2>/dev/null; webpack && bun bun ./launch.ts",
-
-    "dev:nobuild": "export PB_ENV=dev && bun launch.ts",
-    "dev": "bun run build >/dev/null && bun run dev:nobuild",
-
-    "launch:nobuild": "export PB_ENV=prod && bun launch.ts",
-    "launch": "bun run build >/dev/null && bun run launch:nobuild",
+    "dev": "export PB_ENV=dev && bun launch.ts",
+    "launch": "export PB_ENV=prod && bun launch.ts",
 
     "clean": "rm -r ./dist ./node_modules 2>/dev/null",
     "reinstall": "rm -r ./node_modules 2>/dev/null; bun i"
