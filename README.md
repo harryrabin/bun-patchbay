@@ -19,7 +19,8 @@ individual `Patch`es and using `Router`s for control flow.
 
 There are four major concepts you'll need to know to begin:
 
-1. `PBRequest` is a class that wraps a native fetch `Request` and adds on our home-rolled APIs (such as cookies).
+1. `PBRequest` is a class that wraps a native fetch `Request` and adds in some utilities for PatchBay's internal use.
+   You can access the wrapped `Request` with the `.raw()` instance method.
    
 
 2. `Patch` is an abstract class that you will extend to build your logical components.
