@@ -1,7 +1,5 @@
 # PatchBay
 
----
-
 <img src="PatchBay-logo.png" alt="PatchBay Logo" width="250">
 
 PatchBay is a dead-simple modular + declarative web framework built for Bun. Just like Bun itself, PatchBay is in
@@ -73,9 +71,10 @@ While some runtimes have non-standard fixes for this, Bun sticks to the spec –
 limitation, PatchBay exposes a home-rolled and easy-to-use cookie API for you, which under the hood maintains a single
 cookie called `__PBCookie` containing JSON text of all the cookies you set.
 
-If you pack your static assets with PatchBay using the `launch` or `build` scripts, Webpack will inject the necessary
-code to keep cookies working on the client completely transparently, whether they are served by PatchBay or by a
-dedicated static asset host.
+If you pack your static assets with PatchBay using the `launch` or `build` scripts, webpack's default config will
+inject the necessary code to keep cookies working on the client completely transparently, whether they are served by
+PatchBay or by a dedicated static asset host. See [Advanced Usage](#advanced-usage) for more details on webpack config
+with PatchBay.
 
 <sup>(To make the magic happen, PatchBay uses a little package called [cookie-interceptor](https://github.com/keqingrong/cookie-interceptor),
 which only supports a single instance; so, on the off chance you need to use it for your app, the instance is exposed
@@ -112,3 +111,7 @@ With that out of the way, here's a reference on our cookie API:
 ### setCookie
 
 ...
+
+## Advanced Usage
+
+### webpack

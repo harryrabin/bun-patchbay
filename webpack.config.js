@@ -14,6 +14,7 @@ const config = {
     },
     plugins: [
         new InjectPlugin.default(function() {
+            // TODO: change this to final module path before uploading final default project to github
             return fs.readFileSync("./lib/client/cookie-inject.js", {encoding: "utf8"})
         }, {entryOrder: InjectPlugin.ENTRY_ORDER.First}),
         new CopyPlugin({
@@ -21,15 +22,5 @@ const config = {
         })
     ]
 };
-
-const mergeWith = require('lodash.mergewith');
-const pbConfig = require('./patchbay.config');
-
-mergeWith(config, pbConfig.webpackConfig, (obj, src) => {
-    if (src instanceof Array) {
-        if (obj instanceof Array) return obj.concat(src);
-        return src;
-    }
-});
 
 module.exports = config;
