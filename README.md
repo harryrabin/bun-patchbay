@@ -77,7 +77,7 @@ code to keep cookies working on the client completely transparently, whether the
 dedicated static asset host.
 
 <sup>(To make the magic happen, PatchBay uses a little package called [cookie-interceptor](https://github.com/keqingrong/cookie-interceptor),
-which only supports a single instance, so on the off chance you need to use it for your app the instance is exposed
+which only supports a single instance; so, on the off chance you need to use it for your app, the instance is exposed
 as `window.CookieInterceptor`)</sup>
 
 For edge cases where bundling with PatchBay is not doable, it's still an easy fix. For a simple solution, just add

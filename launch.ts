@@ -15,23 +15,13 @@ class MainRouter extends Router {
     defaultResponse = new Response("404: not found", {status: 404})
 }
 
-const cookies: Record<string, string | undefined> = {
-    sessionKey: "3848493",
-    defaultLayout: "tiles"
-}
-
-const myHeaders = new Headers();
-myHeaders.append("Set-Cookie", `__PBCookie=${JSON.stringify(cookies)}`);
-
 const router = new MainRouter(PB_baseURL)
 const server = Bun.serve({
     port: PB_port,
     fetch(req: Request): Response {
         let overrideURL = req.url
         if (overrideURL.at(-1) !== '/') overrideURL += '/';
-        let res = router.__send(new PBRequest(req, overrideURL));
-        res.headers.append("Set-Cookie", `__PBCookie=${JSON.stringify(cookies)}`);
-        return res;
+        return router.__send(new PBRequest(req, overrideURL));
     }
 });
 
