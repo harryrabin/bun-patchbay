@@ -76,8 +76,12 @@ If you pack your static assets with PatchBay using the `launch` or `build` scrip
 code to keep cookies working on the client completely transparently, whether they are served by PatchBay or by a
 dedicated static asset host.
 
-However, for edge cases, this should not be insurmountable. For a simple solution, just add the following snippet to
-the head of your HTML page.
+<sup>(To make the magic happen, PatchBay uses a little package called [cookie-interceptor](https://github.com/keqingrong/cookie-interceptor),
+which only supports a single instance, so on the off chance you need to use it for your app the instance is exposed
+as `window.CookieInterceptor`)</sup>
+
+For edge cases where bundling with PatchBay is not doable, it's still an easy fix. For a simple solution, just add
+the following snippet to the head of your HTML page:
 
 ```html
 <script type="text/javascript">
@@ -87,7 +91,7 @@ the head of your HTML page.
         if (!o) return;
         o = o.replace("__PBCookie=", "");
         const e = JSON.parse(o);
-        for (k in e) document.cookie = k + "=" + e[k];
+        for (const k in e) document.cookie = k + "=" + e[k];
     }
     updateFromPBCookie();
 </script>
@@ -97,13 +101,10 @@ This will parse `__PBCookie` on initial page load, and exposes a global function
 call at any time to parse it again if you have reason to believe it was updated (e.g. in the `.then()` of a fetch that
 may set cookies).
 
-While all of this should work without a hitch, both solutions feel a bit jury-rigged to me. There are potential "real"
-fixes in the works. You may be interested in [this thread](https://github.com/whatwg/fetch/pull/1346), a proposal for
-a sensible long-term solution, and also the experimental [CookieChangeEvent](https://developer.mozilla.org/en-US/docs/Web/API/CookieChangeEvent)
-API which would at least allow the above snippet to work hands-free in the background.
-
-<sup>Tip: If you want to roll your own solution, you may want to look at [*lib/client/cookie-inject.js*](lib/client/cookie-inject.js)
-for inspiration.</sup>
+While all of the above should work without a hitch, there are potential "real" fixes in the works. You may be interested
+in [this thread](https://github.com/whatwg/fetch/pull/1346), a proposal for a sensible long-term solution, and also the
+experimental [CookieChangeEvent](https://developer.mozilla.org/en-US/docs/Web/API/CookieChangeEvent) API which would at
+allow us to stop depending on cookie-interceptor.
 
 With that out of the way, here's a reference on our cookie API:
 

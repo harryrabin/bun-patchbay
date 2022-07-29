@@ -22,4 +22,14 @@ const config = {
     ]
 };
 
+const mergeWith = require('lodash.mergewith');
+const pbConfig = require('./patchbay.config');
+
+mergeWith(config, pbConfig.webpackConfig, (obj, src) => {
+    if (src instanceof Array) {
+        if (obj instanceof Array) return obj.concat(src);
+        return src;
+    }
+});
+
 module.exports = config;

@@ -4,10 +4,16 @@
   "description": "",
   "main": "launch.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "rm -r ./dist && webpack",
-    "launch:nobuild": "bun launch.ts",
-    "launch": "bun run build && bun launch:nobuild"
+    "build": "rm -r ./dist 2>/dev/null; webpack && bun bun ./launch.ts",
+
+    "dev:nobuild": "export PB_ENV=dev && bun launch.ts",
+    "dev": "bun run build >/dev/null && bun run dev:nobuild",
+
+    "launch:nobuild": "export PB_ENV=prod && bun launch.ts",
+    "launch": "bun run build >/dev/null && bun run launch:nobuild",
+
+    "clean": "rm -r ./dist ./node_modules 2>/dev/null",
+    "reinstall": "rm -r ./node_modules 2>/dev/null; bun i"
   },
   "author": "",
   "license": "ISC",
@@ -16,6 +22,7 @@
     "bun-types": "^0.1.4",
     "cookie-interceptor": "^1.0.0",
     "copy-webpack-plugin": "^11.0.0",
+    "lodash.mergewith": "^4.6.2",
     "webpack": "^5.74.0",
     "webpack-cli": "^4.10.0",
     "webpack-inject-plugin": "^1.5.5"
