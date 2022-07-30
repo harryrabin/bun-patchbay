@@ -2,8 +2,13 @@
 
 <img src="PatchBay-logo.png" alt="PatchBay Logo" width="250">
 
-PatchBay is a dead-simple modular + declarative web framework built for Bun. Just like Bun itself, PatchBay is in
-infancy – but as Bun grows, so too will PatchBay.
+PatchBay is a dead-simple modular + declarative web framework built for Bun. PatchBay is strongly opinionated to make
+it as simple and plug-n-play as possible; but generally pretty flexible if you're okay getting your hands dirty.
+
+PatchBay is synchronous. Nothing internal uses promises or callbacks. This may change in the future, but expect to
+use promise chaining if you're using async libraries.
+
+Just like Bun itself, PatchBay is in infancy – but as Bun grows, so too will PatchBay.
 
 ---
 
@@ -61,6 +66,20 @@ created. The first parameter we pass to the constructor is its route, `"/"`. Thi
 The launch.ts file is what you'll use to run your app (`> bun launch.ts`). It sets globals and starts the Bun HTTP
 server. We encourage adding to it to customize your environment (making a database instance global, for example) – but
 you should leave everything that's already in there intact unless you really know what you're doing.
+
+## Patches
+
+Patches are designed to separate logic between accepting the request and generating the response. The pattern we
+recommend is that your `entry` function is in charge of parsing URL parameters and query strings, setting defaults,
+etc. and putting all necessary data in one place for your `exit` function to use, so that the `exit` function is
+guaranteed to succeed.
+
+In fact, we've included an easy way to guarantee data safety for `exit`. `entry` returns
+a generic type, though you may not initially realize it because it defaults to `void`.
+
+//TODO: make examples here
+
+Essentially: abstract your failure points into one function, and do your business logic in another.
 
 ## Cookies
 

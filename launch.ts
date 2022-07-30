@@ -4,7 +4,13 @@ import {Router, PBRequest} from "./lib/patchbay";
 declare global {
     const PB_baseURL: string
     const PB_port: number
+
+    // ==============================
+    // Declare any custom globals below here
+
+    // ...
 }
+// Then initialize them here (don't worry, the ts-ignore usage is safe here)
 // @ts-ignore
 global.PB_baseURL = mainBay.baseURL;
 // @ts-ignore
@@ -18,8 +24,8 @@ class MainRouter extends Router {
 const router = new MainRouter(PB_baseURL)
 const server = Bun.serve({
     port: PB_port,
-    fetch(req: Request): Response {
-        let overrideURL = req.url
+    async fetch(req: Request): Promise<Response> {
+        let overrideURL = req.url;
         if (overrideURL.at(-1) !== '/') overrideURL += '/';
         return router.__send(new PBRequest(req, overrideURL));
     }

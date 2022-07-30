@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import * as _ from "lodash";
 
 // Utilities
 import mimeTypes from "./mime-types";
@@ -12,7 +13,7 @@ function extractResponse(res: DefaultResponse): Response {
     return res instanceof Response ? res.clone() : res();
 }
 
-// Exports
+// Classes
 
 export class PBRequest {
     private readonly __raw: Request;
@@ -65,29 +66,54 @@ export interface Patchable {
     __send(req: PBRequest): Response;
 }
 
-export abstract class Patch implements Patchable {
+class CookieHandler {
+    private guts: ParameterStore = {};
+    private origin: ParameterStore = {};
+
+    init(source: PBRequest) {
+        const rawHeader = source.raw().headers.get("cookie");
+        if (!rawHeader) return;
+
+        const cookies = rawHeader.split("; ").map($ => $.split("="));
+        for (const cookie of cookies) {
+            if (cookie.length !== 2) continue;
+            this.origin[cookie[0]] = cookie[1];
+        }
+        this.guts = {...this.origin};
+    }
+
+    stringify(): string | undefined {
+        if (_.isEqual(this.origin, this.guts)) return undefined;
+        return ""
+    }
+}
+
+export abstract class Patch<DataObject = void> implements Patchable {
     readonly route: Route;
     readonly failedEntryResponse?: DefaultResponse;
     routeParameters: ParameterStore = {};
     queryStringParameters: ParameterStore = {};
+    cookies = new CookieHandler();
+
+    private data?: DataObject;
 
     constructor(route: string) {
         this.route = new Route(route, "patch");
     }
 
-    abstract entry(req: PBRequest): void;
+    abstract entry(req: PBRequest): DataObject;
 
-    abstract exit(): Response;
+    abstract exit(data: DataObject): Response;
 
     __send(req: PBRequest): Response {
         try {
-            this.entry(req);
+            this.data = this.entry(req);
         } catch (e) {
             if (e instanceof FailedEntry && this.failedEntryResponse)
                 return extractResponse(this.failedEntryResponse);
             else throw e;
         }
-        return this.exit();
+        return this.exit(this.data);
     }
 
     parseRouteParams(url: string) {
@@ -97,9 +123,7 @@ export abstract class Patch implements Patchable {
         for (let i = 0; i < this.route.parameterNames.length; i++) {
             this.routeParameters[this.route.parameterNames[i]] = urlMatches[i + 1];
         }
-    }
 
-    parseQueryString() {
         this.queryStringParameters = {};
         if (!this.routeParameters.queryString) return;
         const entries = this.routeParameters.queryString

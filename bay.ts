@@ -3,7 +3,7 @@ import {Patch, PBRequest, StaticAssetRouter} from "./lib/patchbay";
 class UserPage extends Patch {
     entry(req: PBRequest) {
         this.parseRouteParams(req.url);
-        this.parseQueryString();
+        this.cookies.init(req);
         console.log("Route parameters: ", this.routeParameters);
         console.log("Query string parameters: ", this.queryStringParameters);
     }
