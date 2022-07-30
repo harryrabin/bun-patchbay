@@ -24,7 +24,7 @@ class MainRouter extends Router {
 const router = new MainRouter(PB_baseURL)
 const server = Bun.serve({
     port: PB_port,
-    async fetch(req: Request): Promise<Response> {
+    fetch(req: Request): Response {
         let overrideURL = req.url;
         if (overrideURL.at(-1) !== '/') overrideURL += '/';
         return router.__send(new PBRequest(req, overrideURL));

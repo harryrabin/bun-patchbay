@@ -88,22 +88,22 @@ class CookieHandler {
     }
 }
 
-export abstract class Patch<DataObject = void> implements Patchable {
+export abstract class Patch<Data = void> implements Patchable {
     readonly route: Route;
     readonly failedEntryResponse?: DefaultResponse;
     routeParameters: ParameterStore = {};
     queryStringParameters: ParameterStore = {};
     cookies = new CookieHandler();
 
-    private data?: DataObject;
+    private data?: Data;
 
     constructor(route: string) {
         this.route = new Route(route, "patch");
     }
 
-    abstract entry(req: PBRequest): DataObject;
+    abstract entry(req: PBRequest): Data;
 
-    abstract exit(data: DataObject): Response;
+    abstract exit(data: Data): Response;
 
     __send(req: PBRequest): Response {
         try {

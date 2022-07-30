@@ -1,5 +1,9 @@
 import {Patch, PBRequest, StaticAssetRouter} from "./lib/patchbay";
 
+interface UserData {
+    name: string
+}
+
 class UserPage extends Patch {
     entry(req: PBRequest) {
         this.parseRouteParams(req.url);
