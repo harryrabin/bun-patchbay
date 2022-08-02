@@ -5,9 +5,6 @@
 PatchBay is a dead-simple modular + declarative web framework built for Bun. PatchBay is strongly opinionated to make
 it as simple and plug-n-play as possible; but generally pretty flexible if you're okay getting your hands dirty.
 
-PatchBay is synchronous. Nothing internal uses promises or callbacks. This may change in the future, but expect to
-use promise chaining if you're using async libraries.
-
 Just like Bun itself, PatchBay is in infancy – but as Bun grows, so too will PatchBay.
 
 ---

@@ -95,8 +95,6 @@ export abstract class Patch<Data = void> implements Patchable {
     queryStringParameters: ParameterStore = {};
     readonly cookies = new CookieHandler();
 
-    private data?: Data;
-
     constructor(route: string) {
         this.route = new Route(route, "patch");
     }
@@ -106,15 +104,14 @@ export abstract class Patch<Data = void> implements Patchable {
     abstract exit(data: Data): Response | Promise<Response>;
 
     async __send(req: PBRequest): Promise<Response> {
-        this.cookies.init(req);
-
+        let data: Data;
         try {
-            this.data = await this.entry(req);
+            data = await this.entry(req);
         } catch (e) {
             if (e instanceof Response) return e;
             else throw e;
         }
-        return this.exit(this.data);
+        return this.exit(data);
     }
 
     parseRouteParams(url: string) {
