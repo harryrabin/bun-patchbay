@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as _ from "lodash";
+import {Mutex} from "async-mutex";
 
 // Utilities
 import mimeTypes from "./mime-types";
@@ -95,6 +96,8 @@ export abstract class Patch<Data = void> implements Patchable {
     queryStringParameters: ParameterStore = {};
     readonly cookies = new CookieHandler();
 
+    private sendMutex = new Mutex();
+
     constructor(route: string) {
         this.route = new Route(route, "patch");
     }
@@ -103,15 +106,17 @@ export abstract class Patch<Data = void> implements Patchable {
 
     abstract exit(data: Data): Response | Promise<Response>;
 
-    async __send(req: PBRequest): Promise<Response> {
-        let data: Data;
-        try {
-            data = await this.entry(req);
-        } catch (e) {
-            if (e instanceof Response) return e;
-            else throw e;
-        }
-        return this.exit(data);
+    __send(req: PBRequest): Promise<Response> {
+        return this.sendMutex.runExclusive(async (): Promise<Response> => {
+            let data: Data;
+            try {
+                data = await this.entry(req);
+            } catch (e) {
+                if (e instanceof Response) return e;
+                else throw e;
+            }
+            return this.exit(data);
+        });
     }
 
     parseRouteParams(url: string) {
@@ -201,25 +206,35 @@ export abstract class Router implements Patchable {
         this.route = new Route(route, "router");
     }
 
-    private getFinalPatchable(path: string): [Patchable, string] | undefined {
+    private getFinalPatchable(path: string): [Patchable, string] | null {
         let rte = path.replace(this.route.re, "");
         if (rte === "") rte = "/";
 
         const matchedPatches = this.patches.filter($ => $.route.re.test(rte));
-        if (matchedPatches.length == 0) return;
+        if (matchedPatches.length == 0) return null;
 
         for (const patch of matchedPatches) {
             if (patch instanceof Router) {
                 const final = patch.getFinalPatchable(rte);
                 if (final) return final;
-                else continue;
+                if (patch.defaultResponse)
+                    throw extractResponse(patch.defaultResponse);
+                continue;
             }
             return [patch, rte];
         }
+
+        return null;
     }
 
     async __send(req: PBRequest): Promise<Response> {
-        const finalPatchable = this.getFinalPatchable(req.url)
+        let finalPatchable;
+        try {
+            finalPatchable = this.getFinalPatchable(req.url)
+        } catch (e) {
+            if (e instanceof Response) return e;
+            else throw e;
+        }
 
         if (!finalPatchable) {
             if (this.defaultResponse) return extractResponse(this.defaultResponse);
