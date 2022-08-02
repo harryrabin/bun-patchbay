@@ -63,7 +63,7 @@ export class Route {
 export interface Patchable {
     readonly route: Route;
 
-    __send(req: PBRequest): Response;
+    __send(req: PBRequest): Promise<Response>;
 }
 
 class CookieHandler {
@@ -93,7 +93,7 @@ export abstract class Patch<Data = void> implements Patchable {
     readonly failedEntryResponse?: DefaultResponse;
     routeParameters: ParameterStore = {};
     queryStringParameters: ParameterStore = {};
-    cookies = new CookieHandler();
+    readonly cookies = new CookieHandler();
 
     private data?: Data;
 
@@ -101,16 +101,17 @@ export abstract class Patch<Data = void> implements Patchable {
         this.route = new Route(route, "patch");
     }
 
-    abstract entry(req: PBRequest): Data;
+    abstract entry(req: PBRequest): Data | Promise<Data>;
 
-    abstract exit(data: Data): Response;
+    abstract exit(data: Data): Response | Promise<Response>;
 
-    __send(req: PBRequest): Response {
+    async __send(req: PBRequest): Promise<Response> {
+        this.cookies.init(req);
+
         try {
-            this.data = this.entry(req);
+            this.data = await this.entry(req);
         } catch (e) {
-            if (e instanceof FailedEntry && this.failedEntryResponse)
-                return extractResponse(this.failedEntryResponse);
+            if (e instanceof Response) return e;
             else throw e;
         }
         return this.exit(this.data);
@@ -197,30 +198,43 @@ export class LocalRedirect extends Patch {
 export abstract class Router implements Patchable {
     readonly route: Route;
     abstract readonly patches: Patchable[];
-    abstract readonly defaultResponse?: DefaultResponse;
+    protected defaultResponse?: DefaultResponse;
 
     constructor(route: string) {
         this.route = new Route(route, "router");
     }
 
-    __send(req: PBRequest): Response {
-        let rte = req.url.replace(this.route.re, "");
+    private getFinalPatchable(path: string): [Patchable, string] | undefined {
+        let rte = path.replace(this.route.re, "");
         if (rte === "") rte = "/";
-        for (const p of this.patches) if (p.route.re.test(rte)) {
-            try {
-                return p.__send(new PBRequest(req, rte));
-            } catch (e) {
-                if (!(e instanceof RouteNotFound)) throw e;
+
+        const matchedPatches = this.patches.filter($ => $.route.re.test(rte));
+        if (matchedPatches.length == 0) return;
+
+        for (const patch of matchedPatches) {
+            if (patch instanceof Router) {
+                const final = patch.getFinalPatchable(rte);
+                if (final) return final;
+                else continue;
             }
+            return [patch, rte];
         }
-        if (this.defaultResponse) return extractResponse(this.defaultResponse);
-        else throw new RouteNotFound();
+    }
+
+    async __send(req: PBRequest): Promise<Response> {
+        const finalPatchable = this.getFinalPatchable(req.url)
+
+        if (!finalPatchable) {
+            if (this.defaultResponse) return extractResponse(this.defaultResponse);
+            throw new RouteNotFound();
+        }
+
+        return finalPatchable[0].__send(new PBRequest(req, finalPatchable[1]));
     }
 }
 
 export class StaticAssetRouter extends Router {
     readonly patches: Patchable[] = [];
-    readonly defaultResponse?: DefaultResponse;
 
     constructor(route: string, directory: string, options: {
         defaultResponse?: DefaultResponse,
@@ -235,7 +249,7 @@ export class StaticAssetRouter extends Router {
                 this.patches.push(
                     new StaticAssetRouter("/" + item.name, path.join(directory, item.name), {
                         defaultResponse: this.defaultResponse
-                }));
+                    }));
                 continue;
             }
 
@@ -260,10 +274,6 @@ export class StaticAssetRouter extends Router {
 
         if (options.customPatches) this.patches.push(...options.customPatches);
     }
-}
-
-export class FailedEntry extends Error {
-
 }
 
 export class RouteNotFound extends Error {
