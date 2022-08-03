@@ -106,17 +106,24 @@ export abstract class Patch<Data = void> implements Patchable {
 
     abstract exit(data: Data): Response | Promise<Response>;
 
-    __send(req: PBRequest): Promise<Response> {
-        return this.sendMutex.runExclusive(async (): Promise<Response> => {
-            let data: Data;
-            try {
-                data = await this.entry(req);
-            } catch (e) {
-                if (e instanceof Response) return e;
-                else throw e;
-            }
-            return this.exit(data);
-        });
+    private async unsafe__send(req: PBRequest): Promise<Response> {
+        let data: Data;
+        try {
+            data = await this.entry(req);
+        } catch (e) {
+            if (e instanceof Response) return e;
+            else throw e;
+        }
+        return this.exit(data);
+    }
+
+    async __send(req: PBRequest): Promise<Response> {
+        const release = await this.sendMutex.acquire();
+        try {
+            return await this.unsafe__send(req);
+        } finally {
+            release();
+        }
     }
 
     parseRouteParams(url: string) {

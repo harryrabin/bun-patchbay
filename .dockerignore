@@ -1,0 +1,9 @@
+.DS_Store
+.idea
+.git
+.gitignore
+node_modules
+node_modules.bun
+dist
+bun.lockb
+scratch.ts
