@@ -64,7 +64,7 @@ export class Route {
 export interface Patchable {
     readonly route: Route;
 
-    __send(req: PBRequest): Promise<Response>;
+    fetch(req: PBRequest): Promise<Response>;
 }
 
 class CookieHandler {
@@ -106,29 +106,22 @@ export abstract class Patch<Data = void> implements Patchable {
 
     abstract exit(data: Data): Response | Promise<Response>;
 
-    private async unsafe__send(req: PBRequest): Promise<Response> {
-        let data: Data;
-        try {
-            data = await this.entry(req);
-        } catch (e) {
-            if (e instanceof Response) return e;
-            else throw e;
-        }
-        return this.exit(data);
+    async fetch(req: PBRequest): Promise<Response> {
+        return this.sendMutex.runExclusive(async () => {
+            let data: Data;
+            try {
+                data = await this.entry(req);
+            } catch (e) {
+                if (e instanceof Response) return e;
+                else throw e;
+            }
+            return this.exit(data);
+        });
     }
 
-    async __send(req: PBRequest): Promise<Response> {
-        const release = await this.sendMutex.acquire();
-        try {
-            return await this.unsafe__send(req);
-        } finally {
-            release();
-        }
-    }
-
-    parseRouteParams(url: string) {
+    parseRouteParams(req: PBRequest) {
         this.routeParameters = {}
-        const urlMatches = url.match(this.route.re);
+        const urlMatches = req.url.match(this.route.re);
         if (!urlMatches || urlMatches.length <= 1) return;
         for (let i = 0; i < this.route.parameterNames.length; i++) {
             this.routeParameters[this.route.parameterNames[i]] = urlMatches[i + 1];
@@ -234,7 +227,7 @@ export abstract class Router implements Patchable {
         return null;
     }
 
-    async __send(req: PBRequest): Promise<Response> {
+    async fetch(req: PBRequest): Promise<Response> {
         let finalPatchable;
         try {
             finalPatchable = this.getFinalPatchable(req.url)
@@ -248,7 +241,7 @@ export abstract class Router implements Patchable {
             throw new RouteNotFound();
         }
 
-        return finalPatchable[0].__send(new PBRequest(req, finalPatchable[1]));
+        return finalPatchable[0].fetch(new PBRequest(req, finalPatchable[1]));
     }
 }
 

@@ -27,7 +27,7 @@ const server = Bun.serve({
     fetch(req: Request): Promise<Response> {
         let overrideURL = req.url;
         if (overrideURL.at(-1) !== '/') overrideURL += '/';
-        return router.__send(new PBRequest(req, overrideURL));
+        return router.fetch(new PBRequest(req, overrideURL));
     }
 });
 

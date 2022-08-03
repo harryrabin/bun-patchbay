@@ -6,7 +6,7 @@ interface UserData {
 
 class UserPage extends Patch {
     entry(req: PBRequest) {
-        this.parseRouteParams(req.url);
+        this.parseRouteParams(req);
         this.cookies.init(req);
         console.log("Route parameters: ", this.routeParameters);
         console.log("Query string parameters: ", this.queryStringParameters);
