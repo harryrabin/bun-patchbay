@@ -1,20 +1,18 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as _ from "lodash";
+import * as nunjucks from "nunjucks";
 import {Mutex} from "async-mutex";
-
-// Utilities
 import mimeTypes from "./mime-types";
+import {ServeOptions} from "bun";
 
-type ParameterStore = Record<string, string | undefined>;
+export type ParameterStore = Record<string, string | undefined>;
 
-type DefaultResponse = Response | (() => Response);
+export type DefaultResponse = Response | (() => Response);
 
 function extractResponse(res: DefaultResponse): Response {
     return res instanceof Response ? res.clone() : res();
 }
-
-// Classes
 
 export class PBRequest {
     private readonly __raw: Request;
@@ -106,7 +104,7 @@ export abstract class Patch<Data = void> implements Patchable {
 
     abstract exit(data: Data): Response | Promise<Response>;
 
-    async fetch(req: PBRequest): Promise<Response> {
+    fetch(req: PBRequest): Promise<Response> {
         return this.sendMutex.runExclusive(async () => {
             let data: Data;
             try {

@@ -1,8 +1,4 @@
-import {Patch, PBRequest, StaticAssetRouter} from "./lib/patchbay";
-
-interface UserData {
-    name: string
-}
+import {Patch, PBRequest, StaticAssetRouter, MainBay} from "./lib";
 
 class UserPage extends Patch {
     entry(req: PBRequest) {
@@ -17,7 +13,7 @@ class UserPage extends Patch {
     }
 }
 
-export default {
+const mainBay: MainBay = {
     baseURL: "http://localhost:3000",
     port: 3000,
     patches: [
@@ -25,3 +21,5 @@ export default {
         new UserPage("/{username}{queryString}")
     ]
 }
+
+export default mainBay;

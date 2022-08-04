@@ -2,11 +2,11 @@
   "name": "patchbay_v1",
   "version": "1.0.0",
   "description": "",
-  "main": "launch.ts",
+  "main": "index.ts",
   "scripts": {
-    "build": "rm -r ./dist 2>/dev/null; webpack && bun bun ./launch.ts",
-    "dev": "export PB_ENV=dev && bun launch.ts",
-    "launch": "export PB_ENV=prod && bun launch.ts",
+    "build": "rm -r ./dist 2>/dev/null; webpack && bun bun index.ts",
+    "dev": "export PB_ENV=dev && bun index.ts",
+    "launch": "export PB_ENV=prod && bun index.ts",
     "clean": "rm -r ./dist ./node_modules 2>/dev/null",
     "reinstall": "rm -r ./node_modules 2>/dev/null; bun i"
   },
@@ -15,11 +15,13 @@
   "dependencies": {
     "@types/lodash": "^4.14.182",
     "@types/node": "^18.0.6",
+    "@types/nunjucks": "^3.2.1",
     "async-mutex": "^0.3.2",
     "bun-types": "^0.1.4",
     "cookie-interceptor": "^1.0.0",
     "copy-webpack-plugin": "^11.0.0",
     "lodash": "^4.17.21",
+    "nunjucks": "^3.2.3",
     "webpack": "^5.74.0",
     "webpack-cli": "^4.10.0",
     "webpack-inject-plugin": "^1.5.5"
