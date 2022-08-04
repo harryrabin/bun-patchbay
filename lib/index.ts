@@ -1,4 +1,3 @@
-import * as nunjucks from "nunjucks";
 import * as _ from "lodash";
 import {Server, ServeOptions} from "bun";
 import {DefaultResponse, Patchable, PBRequest, Router} from "./core";
@@ -9,7 +8,6 @@ declare global {
     const PatchBay: PBApp;
     const PB_port: number;
     const PB_baseURL: string;
-    const nunjucks: nunjucks.Environment;
 }
 
 export interface MainBay {
@@ -20,53 +18,67 @@ export interface MainBay {
 }
 
 export interface PBAppOptions {
-    baseURL: string;
-    port: number;
-    mainRouter: Router;
-    viewDirectory?: string;
-    nunjucksConfig?: nunjucks.ConfigureOptions;
+    mainBay: MainBay;
+    noGlobals?: boolean;
+}
+
+class MainRouter extends Router {
+    readonly patches: Patchable[];
+    readonly defaultResponse: DefaultResponse;
+
+    constructor(route: string,
+                patches: Patchable[],
+                defaultResponse?: DefaultResponse) {
+        super(route);
+        this.patches = patches;
+        this.defaultResponse = defaultResponse ||
+            new Response("404: not found", {status: 404});
+    }
 }
 
 export class PBApp {
-    private readonly mainRouter: Router;
+    readonly mainRouter: Router;
+    readonly mainBay: MainBay;
 
     constructor(options: PBAppOptions) {
-        this.mainRouter = options.mainRouter;
+        this.mainBay = options.mainBay;
 
+        this.mainRouter = new MainRouter(options.mainBay.baseURL,
+            options.mainBay.patches,
+            options.mainBay.defaultResponse);
+
+        if (options.noGlobals) return;
         Object.defineProperty(global, "PatchBay", {
             value: this,
             writable: false
         });
         Object.defineProperty(global, "PB_port", {
-            value: options.port,
+            value: options.mainBay.port,
             writable: false
         })
         Object.defineProperty(global, "PB_baseURL", {
-            value: options.baseURL,
+            value: options.mainBay.baseURL,
             writable: false
         })
-        Object.defineProperty(global, "nunjucks", {
-            value: nunjucks.configure(options.viewDirectory || "./views", options.nunjucksConfig),
-            writable: false
-        });
     }
 
     serve(options?: ServeOptions): Server {
+        const _this = this;
         let opt = {
             port: PB_port,
-            fetch: this.fetch
+            fetch(req: Request): Promise<Response> {
+                let overrideURL = req.url;
+                if (overrideURL.at(-1) !== '/') overrideURL += '/';
+                return _this.mainRouter.fetch(new PBRequest(req, overrideURL));
+            }
         }
 
-        if (options) _.merge(opt, options);
+        if (options) _.mergeWith(opt, options, (obj, src, key) => {
+            if (key === 'port' || key === 'fetch') return obj[key];
+        });
 
         const server = Bun.serve(opt);
         console.log(`Server started on port ${server.port}`);
         return server;
-    }
-
-    private fetch(req: Request): Promise<Response> {
-        let overrideURL = req.url;
-        if (overrideURL.at(-1) !== '/') overrideURL += '/';
-        return this.mainRouter.fetch(new PBRequest(req, overrideURL));
     }
 }
