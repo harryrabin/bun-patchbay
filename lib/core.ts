@@ -1,10 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as _ from "lodash";
-import * as nunjucks from "nunjucks";
 import {Mutex} from "async-mutex";
 import mimeTypes from "./mime-types";
-import {ServeOptions} from "bun";
 
 export type ParameterStore = Record<string, string | undefined>;
 
