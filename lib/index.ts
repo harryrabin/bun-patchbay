@@ -1,4 +1,4 @@
-import * as _ from "lodash";
+import {mergeWith} from "lodash";
 import {Server, ServeOptions} from "bun";
 import {DefaultResponse, Patchable, PBRequest, Router} from "./core";
 
@@ -19,21 +19,7 @@ export interface MainBay {
 
 export interface PBAppOptions {
     mainBay: MainBay;
-    noGlobals?: boolean;
-}
-
-class MainRouter extends Router {
-    readonly patches: Patchable[];
-    readonly defaultResponse: DefaultResponse;
-
-    constructor(route: string,
-                patches: Patchable[],
-                defaultResponse?: DefaultResponse) {
-        super(route);
-        this.patches = patches;
-        this.defaultResponse = defaultResponse ||
-            new Response("404: not found", {status: 404});
-    }
+    skipGlobals?: boolean;
 }
 
 export class PBApp {
@@ -43,11 +29,13 @@ export class PBApp {
     constructor(options: PBAppOptions) {
         this.mainBay = options.mainBay;
 
-        this.mainRouter = new MainRouter(options.mainBay.baseURL,
-            options.mainBay.patches,
-            options.mainBay.defaultResponse);
+        this.mainRouter = new class extends Router {
+            patches = options.mainBay.patches;
+            defaultResponse = options.mainBay.defaultResponse ||
+                new Response("404: not found", {status: 404});
+        }(options.mainBay.baseURL);
 
-        if (options.noGlobals) return;
+        if (options.skipGlobals) return;
         Object.defineProperty(global, "PatchBay", {
             value: this,
             writable: false
@@ -65,7 +53,7 @@ export class PBApp {
     serve(options?: ServeOptions): Server {
         const _this = this;
         let opt = {
-            port: PB_port,
+            port: _this.mainBay.port,
             fetch(req: Request): Promise<Response> {
                 let overrideURL = req.url;
                 if (overrideURL.at(-1) !== '/') overrideURL += '/';
@@ -73,7 +61,7 @@ export class PBApp {
             }
         }
 
-        if (options) _.mergeWith(opt, options, (obj, src, key) => {
+        if (options) mergeWith(opt, options, (obj, src, key) => {
             if (key === 'port' || key === 'fetch') return obj[key];
         });
 

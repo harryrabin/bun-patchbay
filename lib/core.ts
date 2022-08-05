@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import * as _ from "lodash";
+import {isEqual} from "lodash";
 import {Mutex} from "async-mutex";
 import mimeTypes from "./mime-types";
 
@@ -80,7 +80,7 @@ class CookieHandler {
     }
 
     stringify(): string | undefined {
-        if (_.isEqual(this.origin, this.guts)) return undefined;
+        if (isEqual(this.origin, this.guts)) return undefined;
         return ""
     }
 }
