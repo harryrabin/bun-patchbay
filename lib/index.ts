@@ -10,7 +10,7 @@ export * as PBUtils from './utilities';
 
 declare global {
     const PatchBay: PBApp;
-    const Templates: { [key: string]: HandlebarsTemplateDelegate };
+    const Templates: Record<string, HandlebarsTemplateDelegate>;
 }
 
 export interface MainBay {

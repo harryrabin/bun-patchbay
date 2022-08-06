@@ -4,7 +4,7 @@ import {isEqual} from "lodash";
 import {Mutex} from "async-mutex";
 import mimeTypes from "./mime-types";
 
-export type ParameterStore = Record<string, string | undefined>;
+export type ParameterStore = Record<string, string | undefined>
 
 export type DefaultResponse = Response | (() => Response);
 

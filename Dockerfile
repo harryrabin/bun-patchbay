@@ -13,8 +13,8 @@ RUN curl https://bun.sh/install | bash
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash
 RUN apt install nodejs -y
 
-COPY . /root
-WORKDIR /root
+COPY . ${HOME}
+WORKDIR ${HOME}
 
 RUN bun install
 RUN bun run build

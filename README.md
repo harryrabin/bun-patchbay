@@ -60,9 +60,10 @@ class that serves the assets inside a given directory (in this case `"./dist"`).
 `StaticAssetRouter` anonymously, and it just lives in the array. This is how nearly all patchable components will be
 created. The first parameter we pass to the constructor is its route, `"/"`. This means 
 
-The launch.ts file is what you'll use to run your app (`> bun launch.ts`). It sets globals and starts the Bun HTTP
-server. We encourage adding to it to customize your environment (making a database instance global, for example) – but
-you should leave everything that's already in there intact unless you really know what you're doing.
+The `launch.ts` file is the entrypoint for a PatchBay app. Its only required functionality is to instantiate the `PBApp`
+and tell it to start serving. That's all it needs to do, and out of the box that's all it *will* do. We've kept it
+simple on purpose, so you have an easy and clean place to do things like declare a global database instance, set
+options for the Bun server, and so on.
 
 ## Patches
 
@@ -77,6 +78,51 @@ a generic type, though you may not initially realize it because it defaults to `
 //TODO: make examples here
 
 Essentially: abstract your failure points into one function, and do your business logic in another.
+
+## Templates
+
+PatchBay includes [Handlebars](https://handlebarsjs.com), a fast and powerful templating engine. And, we made it
+even easier to use. Any `.hbs` files in the `views` directory will be compiled onto a global object called `Templates`.
+Accessing and using the templates looks like this:
+
+```typescript
+const templateText: string = Templates['user-homepage']({user: "johnsmith"});
+
+// nested directories work too. for ./views/emails/login-attempt.hbs, you would write
+Templates['emails/login-attempt']
+```
+
+We even made an easy way to return a template as an HTML response.
+```typescript
+import {Patch, PBUtils} from "patchbay";
+
+class UserHomepage extends Patch {
+    // ...
+   
+   exit(): Response {
+       return PBUtils.TemplateResponse('user-homepage', {user: "johnsmith"})
+   }
+}
+```
+
+### Advanced usage
+The default search directory is `./views`, but you can change this with the `viewDirectory` option when instantiating
+your PBApp. If you want more control over Handlebars' behavior, you have a couple options when instantiating your
+PBApp.
+
+1. You can pass in a `Handlebars.CompileOptions` instance to change how Handlebars compiles your views.
+2. You can pass in `noHandlebars: true` to prevent PatchBay from reading the view directory (if you haven't also passed
+   in `noGlobals: true`, the `Templates` global will be defined as empty, and you can modify it as you please).
+
+```typescript
+new PBApp({
+   // Don't use both at options at once, this is just an example
+   noHandlebars: true,
+   handlebarsOptions: {
+       noEscape: true
+   }
+})
+```
 
 ## Cookies
 
@@ -129,8 +175,9 @@ With that out of the way, here's a reference on our cookie API:
 
 ## Building
 
-PatchBay does not require any kind of build phase to run. Bun has a JIT TypeScript compiler. The included build script
-is just a convenience script that:
+PatchBay does not *require* any kind of build phase to run. All environment setup, including TypeScript compilation, is
+performed on launch. The included build script is just a convenience script that:
+
 1. Clears out the dist folder
 2. Runs webpack for your static assets
 3. Runs `bun bun` to bundle your app's dependencies.
@@ -153,6 +200,7 @@ do with as you please.
 
 ### bun bun
 
-Bun has a built-in dependency bundler that works similarly to webpack, but stores the bundled dependencies in an
-extremely efficient binary file called `node_modules.bun` that it will read from on launch instead of the
-`node_modules` directory. This has some obvious speed perks for your app, so we included it in the default build script.
+Bun has a built-in dependency bundler for your server-side dependencies that works similarly to webpack, but stores
+the bundled JavaScript in an extremely efficient binary file called `node_modules.bun` that it will read from on launch
+instead of the`node_modules` directory. This has some obvious speed perks for your app, so we included it in the
+default build script.

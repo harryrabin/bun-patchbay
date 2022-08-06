@@ -3,6 +3,5 @@ export function HTMLResponse(text: string) {
 }
 
 export function TemplateResponse(templateName: string, context: any, options?: RuntimeOptions) {
-    const text = Templates[templateName](context, options);
-    return HTMLResponse(text);
+    return HTMLResponse(Templates[templateName](context, options));
 }
