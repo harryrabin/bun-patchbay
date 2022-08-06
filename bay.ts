@@ -1,4 +1,4 @@
-import {Patch, PBRequest, StaticAssetRouter, MainBay} from "./lib";
+import {Patch, PBRequest, StaticAssetRouter, MainBay, PBUtils} from "./lib";
 
 class UserPage extends Patch {
     entry(req: PBRequest) {
@@ -9,7 +9,9 @@ class UserPage extends Patch {
     }
 
     exit(): Response {
-        return new Response("User homepage for " + this.routeParameters.username);
+        return PBUtils.TemplateResponse('user-homepage', {
+            user: this.routeParameters.username
+        });
     }
 }
 

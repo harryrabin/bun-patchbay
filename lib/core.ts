@@ -17,7 +17,7 @@ export class PBRequest {
     readonly url: string;
 
     constructor(req: Request | PBRequest, overrideURL?: string) {
-        this._raw = req instanceof PBRequest ? req._raw : req;
+        this._raw = req instanceof PBRequest ? req.raw() : req;
         this.url = overrideURL || req.url;
     }
 
