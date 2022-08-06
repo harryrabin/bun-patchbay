@@ -6,8 +6,7 @@ export * from './core';
 
 declare global {
     const PatchBay: PBApp;
-    const PB_port: number;
-    const PB_baseURL: string;
+    const Templates: Record<string, HandlebarsTemplateDelegate>;
 }
 
 export interface MainBay {
@@ -18,34 +17,34 @@ export interface MainBay {
 }
 
 export interface PBAppOptions {
-    mainBay: MainBay;
     skipGlobals?: boolean;
 }
 
 export class PBApp {
     readonly mainRouter: Router;
-    readonly mainBay: MainBay;
+    readonly port: number;
+    readonly baseURL: string;
 
-    constructor(options: PBAppOptions) {
-        this.mainBay = options.mainBay;
+    private readonly mainBay: MainBay;
+
+    constructor(mainBay: MainBay, options: PBAppOptions = {}) {
+        this.mainBay = mainBay;
+        this.port = mainBay.port;
+        this.baseURL = mainBay.baseURL;
 
         this.mainRouter = new class extends Router {
-            patches = options.mainBay.patches;
-            defaultResponse = options.mainBay.defaultResponse ||
+            patches = mainBay.patches;
+            defaultResponse = mainBay.defaultResponse ||
                 new Response("404: not found", {status: 404});
-        }(options.mainBay.baseURL);
+        }(mainBay.baseURL);
 
         if (options.skipGlobals) return;
         Object.defineProperty(global, "PatchBay", {
             value: this,
             writable: false
         });
-        Object.defineProperty(global, "PB_port", {
-            value: options.mainBay.port,
-            writable: false
-        })
-        Object.defineProperty(global, "PB_baseURL", {
-            value: options.mainBay.baseURL,
+        Object.defineProperty(global, "Templates", {
+            value: {},
             writable: false
         })
     }

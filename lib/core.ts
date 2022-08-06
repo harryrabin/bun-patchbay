@@ -13,16 +13,16 @@ function extractResponse(res: DefaultResponse): Response {
 }
 
 export class PBRequest {
-    private readonly __raw: Request;
+    private readonly _raw: Request;
     readonly url: string;
 
     constructor(req: Request | PBRequest, overrideURL?: string) {
-        this.__raw = req instanceof PBRequest ? req.raw() : req;
+        this._raw = req instanceof PBRequest ? req._raw : req;
         this.url = overrideURL || req.url;
     }
 
     raw(): Request {
-        return this.__raw.clone();
+        return this._raw.clone();
     }
 }
 
