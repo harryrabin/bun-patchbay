@@ -7,7 +7,5 @@ import mainBay from "./bay";
  undefined. */
 new PBApp(mainBay);
 
-// * put anything custom here *
-
 // Finally, tell the app to start listening for requests
 PatchBay.serve();

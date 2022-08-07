@@ -1,4 +1,4 @@
-import {mergeWith} from "lodash";
+import {merge as ldMerge} from "lodash";
 import {Server, ServeOptions} from "bun";
 import {DefaultResponse, Patchable, PBRequest, Router} from "./core";
 import {compile as hbCompile} from "handlebars";
@@ -10,8 +10,9 @@ export * as PBUtils from './utilities';
 
 declare global {
     const PatchBay: PBApp;
-    const Templates: Record<string, HandlebarsTemplateDelegate>;
 }
+
+type PBServeOptions = Omit<ServeOptions, "fetch" | "port">;
 
 export interface MainBay {
     baseURL: string;
@@ -21,7 +22,6 @@ export interface MainBay {
 }
 
 export interface PBAppOptions {
-    skipGlobals?: boolean;
     noHandlebars?: boolean;
     handlebarsOptions?: CompileOptions;
     viewDirectory?: string;
@@ -31,6 +31,7 @@ export class PBApp {
     readonly mainRouter: Router;
     readonly port: number;
     readonly baseURL: string;
+    readonly templates: Record<string, HandlebarsTemplateDelegate> = {};
 
     private readonly mainBay: MainBay;
 
@@ -45,26 +46,18 @@ export class PBApp {
                 new Response("404: not found", {status: 404});
         }(mainBay.baseURL);
 
-        const _this = this;
-        (() => {
-            if (options.skipGlobals) return;
-            Object.defineProperty(global, "PatchBay", {
-                value: _this,
-                writable: false
-            });
-            Object.defineProperty(global, "Templates", {
-                value: {},
-                writable: false
-            });
-        })();
+        Object.defineProperty(global, "PatchBay", {
+            value: this,
+            writable: false
+        });
 
         const viewDir = options.viewDirectory || "./views";
         if (!options.noHandlebars)
-            loadTemplates(viewDir, {hbOptions: options.handlebarsOptions});
+            loadTemplates(this.templates, viewDir, {hbOptions: options.handlebarsOptions});
     }
 
 
-    serve(options: Partial<ServeOptions> = {}): Server {
+    serve(options: PBServeOptions = {}): Server {
         const _this = this;
         let opt = {
             port: _this.mainBay.port,
@@ -75,9 +68,7 @@ export class PBApp {
             }
         }
 
-        mergeWith(opt, options, (obj, src, key) => {
-            if (key === 'port' || key === 'fetch') return obj[key];
-        });
+        ldMerge(opt, options);
 
         const server = Bun.serve(opt);
         console.log(`Server started on port ${server.port}`);
@@ -85,7 +76,7 @@ export class PBApp {
     }
 }
 
-function loadTemplates(dir: string, options: {
+function loadTemplates(target: object, dir: string, options: {
     parent?: string;
     hbOptions?: CompileOptions;
 } = {}) {
@@ -94,7 +85,7 @@ function loadTemplates(dir: string, options: {
 
     for (const item of contents) {
         if (item.isDirectory()) {
-            loadTemplates(path.resolve(dir, item.name), {
+            loadTemplates(target, path.resolve(dir, item.name), {
                 ...options,
                 parent: parentName + item.name
             });
@@ -106,6 +97,9 @@ function loadTemplates(dir: string, options: {
         const templateName = parentName + path.basename(item.name, ".hbs");
         let templateText = fs.readFileSync(path.resolve(dir, item.name), "utf-8");
 
-        Templates[templateName] = hbCompile(templateText, options.hbOptions);
+        Object.defineProperty(target, templateName, {
+            value: hbCompile(templateText, options.hbOptions),
+            writable: false
+        });
     }
 }

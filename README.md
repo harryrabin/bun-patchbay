@@ -2,7 +2,7 @@
 
 <img src="PatchBay-logo.png" alt="PatchBay Logo" width="250">
 
-PatchBay is a dead-simple modular + declarative web framework built for Bun. PatchBay is strongly opinionated to make
+PatchBay is a dead-simple modular + declarative web framework built for Bun. PatchBay is somewhat opinionated to make
 it as simple and plug-n-play as possible; but generally pretty flexible if you're okay getting your hands dirty.
 
 Just like Bun itself, PatchBay is in infancy – but as Bun grows, so too will PatchBay.
@@ -21,14 +21,11 @@ There are four major concepts you'll need to know to begin:
 
 1. `PBRequest` is a class that wraps a native fetch `Request` and adds in some utilities for PatchBay's internal use.
    You can access the wrapped `Request` with the `.raw()` instance method.
-   
 
 2. `Patch` is an abstract class that you will extend to build your logical components.
-   
 
 3. `Router` is an abstract class that is essentially a "folder" of `Patchable`s. You will likely not be extending it,
    but rather using the provided utility classes that extend it.
-   
 
 4. `Patchable` is an interface defining any route that can be put into a router. A `Patchable` just stores its own
    route and a single function that takes a `PBRequest` and returns a `Response`. `Patch` and `Router` both implement
@@ -82,11 +79,11 @@ Essentially: abstract your failure points into one function, and do your busines
 ## Templates
 
 PatchBay includes [Handlebars](https://handlebarsjs.com), a fast and powerful templating engine. And, we made it
-even easier to use. Any `.hbs` files in the `views` directory will be compiled onto a global object called `Templates`.
-Accessing and using the templates looks like this:
+even easier to use. Any `.hbs` files in the `views` directory will be compiled and made global via an object called
+`templates`. Accessing and using the templates looks like this:
 
 ```typescript
-const templateText: string = Templates['user-homepage']({user: "johnsmith"});
+const templateText: string = PatchBay.templates['user-homepage']({user: "johnsmith"});
 
 // nested directories work too. for ./views/emails/login-attempt.hbs, you would write
 Templates['emails/login-attempt']
@@ -111,16 +108,19 @@ your PBApp. If you want more control over Handlebars' behavior, you have a coupl
 PBApp.
 
 1. You can pass in a `Handlebars.CompileOptions` instance to change how Handlebars compiles your views.
-2. You can pass in `noHandlebars: true` to prevent PatchBay from reading the view directory (if you haven't also passed
-   in `noGlobals: true`, the `Templates` global will be defined as empty, and you can modify it as you please).
+2. You can pass in `noHandlebars: true` to prevent PatchBay from reading the view directory. The `templates` global
+   will be defined as empty, and you can add to it as you please.
 
 ```typescript
 new PBApp({
-   // Don't use both at options at once, this is just an example
-   noHandlebars: true,
+   viewDirectory: "./customviewdirectory",
    handlebarsOptions: {
        noEscape: true
-   }
+      //...
+   },
+   
+   // Or, disable the automatic loading
+   noHandlebars: true,
 })
 ```
 
@@ -204,3 +204,24 @@ Bun has a built-in dependency bundler for your server-side dependencies that wor
 the bundled JavaScript in an extremely efficient binary file called `node_modules.bun` that it will read from on launch
 instead of the`node_modules` directory. This has some obvious speed perks for your app, so we included it in the
 default build script.
+
+## Programmatic Usage (Advanced)
+
+While the default project does a lot of heavy lifting, PatchBay can be used programmatically with just a few things to
+keep in mind.
+
+The global `PatchBay` will always be set to the latest-created instance of PBApp. This is why `launch.ts` in the
+default project doesn't bother assigning the `PBApp` to anything. However, the constructor does return the instance,
+so you can assign it to be used programmatically if you want multiple `PBApp` instances running. Just remember to avoid
+using the global `PatchBay`, or you may get some unexpected behavior.
+
+Nothing in the core library uses the global `PatchBay`, but some `PBUtils` helpers do. However, they have workarounds:
+
+```typescript
+PBUtils.TemplateResponse('my-template', {data: "data"}, {
+    /* Pass in a template record like below to override
+    the use of the global one */
+   
+    templates: customPBInstance.templates
+})
+```
