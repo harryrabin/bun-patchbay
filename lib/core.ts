@@ -79,9 +79,14 @@ class CookieHandler {
         this.guts = {...this.origin};
     }
 
+    clear() {
+        this.guts = {};
+        this.origin = {};
+    }
+
     stringify(): string | undefined {
         if (isEqual(this.origin, this.guts)) return undefined;
-        return ""
+        return JSON.stringify(this.guts);
     }
 }
 
@@ -104,6 +109,10 @@ export abstract class Patch<Data = void> implements Patchable {
 
     fetch(req: PBRequest): Promise<Response> {
         return this.sendMutex.runExclusive(async () => {
+            this.cookies.clear();
+            this.queryStringParameters = {};
+            this.routeParameters = {}
+
             let data: Data;
             try {
                 data = await this.entry(req);
@@ -116,14 +125,12 @@ export abstract class Patch<Data = void> implements Patchable {
     }
 
     parseRouteParams(req: PBRequest) {
-        this.routeParameters = {}
         const urlMatches = req.url.match(this.route.re);
         if (!urlMatches || urlMatches.length <= 1) return;
         for (let i = 0; i < this.route.parameterNames.length; i++) {
             this.routeParameters[this.route.parameterNames[i]] = urlMatches[i + 1];
         }
 
-        this.queryStringParameters = {};
         if (!this.routeParameters.queryString) return;
         const entries = this.routeParameters.queryString
             .split("&")

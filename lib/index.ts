@@ -1,4 +1,3 @@
-import {merge as ldMerge} from "lodash";
 import {Server, ServeOptions} from "bun";
 import {DefaultResponse, Patchable, PBRequest, Router} from "./core";
 import {compile as hbCompile} from "handlebars";
@@ -59,18 +58,16 @@ export class PBApp {
 
     serve(options: PBServeOptions = {}): Server {
         const _this = this;
-        let opt = {
+
+        const server = Bun.serve({
+            ...options,
             port: _this.mainBay.port,
             fetch(req: Request): Promise<Response> {
                 let overrideURL = req.url;
                 if (overrideURL.at(-1) !== '/') overrideURL += '/';
                 return _this.mainRouter.fetch(new PBRequest(req, overrideURL));
             }
-        }
-
-        ldMerge(opt, options);
-
-        const server = Bun.serve(opt);
+        });
         console.log(`Server started on port ${server.port}`);
         return server;
     }
