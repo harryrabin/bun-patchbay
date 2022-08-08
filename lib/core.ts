@@ -294,7 +294,7 @@ export abstract class Router implements Patchable {
     }
 
     async fetch(req: PBRequest): Promise<Response> {
-        let finalPatchable;
+        let finalPatchable: [Patchable, string] | null;
         try {
             finalPatchable = this.getFinalPatchable(req.url)
         } catch (e) {

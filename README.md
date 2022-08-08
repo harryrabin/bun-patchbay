@@ -83,13 +83,14 @@ even easier to use. Any `.hbs` files in the `views` directory will be compiled a
 `templates`. Accessing and using the templates looks like this:
 
 ```typescript
+// for ./views/user-homepage.hbs, you would write:
 const templateText: string = PatchBay.templates['user-homepage']({user: "johnsmith"});
 
-// nested directories work too. for ./views/emails/login-attempt.hbs, you would write
-Templates['emails/login-attempt']
+// nested directories work too. for ./views/emails/login-attempt.hbs, you would write:
+PatchBay.templates['emails/login-attempt'];
 ```
 
-We even made an easy way to return a template as an HTML response.
+We even made an easy way to return a template as an HTML response:
 ```typescript
 import {Patch, PBUtils} from "patchbay";
 
@@ -97,7 +98,7 @@ class UserHomepage extends Patch {
     // ...
    
    exit(): Response {
-       return PBUtils.TemplateResponse('user-homepage', {user: "johnsmith"})
+       return PBUtils.TemplateResponse('user-homepage', {user: "johnsmith"});
    }
 }
 ```
@@ -121,7 +122,7 @@ new PBApp({
    
    // Or, disable the automatic loading
    noHandlebars: true,
-})
+});
 ```
 
 ## Cookies
@@ -208,7 +209,7 @@ default build script.
 ## Programmatic Usage (Advanced)
 
 While the default project does a lot of heavy lifting, PatchBay can be used programmatically with just a few things to
-keep in mind.
+keep in mind to avoid unexpected or undefined behavior.
 
 The global `PatchBay` will always be set to the latest-created instance of PBApp. This is why `launch.ts` in the
 default project doesn't bother assigning the `PBApp` to anything. However, the constructor does return the instance,
