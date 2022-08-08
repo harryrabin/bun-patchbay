@@ -63,7 +63,16 @@ export interface Patchable {
     fetch(req: PBRequest): Promise<Response>;
 }
 
-class CookieHandler {
+export interface CookieAttributes {
+    expires?: Date | string;
+    max_age?: number;
+    domain?: string;
+    path?: string;
+    secure?: boolean;
+    sameSite?: "strict" | "lax" | "none";
+}
+
+export class CookieHandler {
     private guts: ParameterStore = {};
     private origin: ParameterStore = {};
 
@@ -77,6 +86,53 @@ class CookieHandler {
             this.origin[cookie[0]] = cookie[1];
         }
         this.guts = {...this.origin};
+    }
+
+    set(key: string, value: string, attributes?: CookieAttributes) {
+        if (!attributes) {
+            this.guts[key] = value;
+            return;
+        }
+
+        let out = value;
+
+        if (attributes.expires instanceof Date) {
+            out += `; Expires=${attributes.expires.toUTCString()}`;
+        } else if (typeof attributes.expires === "string") {
+            out += `; Expires=${attributes.expires}`;
+        }
+
+        if (attributes.max_age) out += `; Max-Age=${attributes.max_age}`;
+
+        if (attributes.domain) out += `; Domain=${attributes.domain}`;
+
+        if (attributes.path) out += `; Path=${attributes.path}`;
+
+        let secure = attributes.secure;
+
+        switch (attributes.sameSite) {
+            case undefined:
+                break;
+            case "strict":
+                out += "; SameSite=Strict";
+                break;
+            case "lax":
+                out += "; SameSite=Lax";
+                break;
+            case "none":
+                out += "; SameSite=None"
+                secure = true;
+                break;
+        }
+
+        if (secure === true) out += "; Secure";
+
+        this.guts[key] = out;
+    }
+
+    unset(key: string) {
+        if (!this.guts[key]) return;
+        this.guts[key] = '"";Expires=Sat, 01 Jan 2000 00:01:00 GMT'
     }
 
     clear() {
@@ -126,7 +182,7 @@ export abstract class Patch<Data = void> implements Patchable {
 
     parseRouteParams(req: PBRequest) {
         const urlMatches = req.url.match(this.route.re);
-        if (!urlMatches || urlMatches.length <= 1) return;
+        if (!urlMatches || urlMatches.length < 2) return;
         for (let i = 0; i < this.route.parameterNames.length; i++) {
             this.routeParameters[this.route.parameterNames[i]] = urlMatches[i + 1];
         }
