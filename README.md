@@ -126,6 +126,7 @@ new PBApp({
 });
 ```
 
+<a id="sec-cookies"></a>
 ## Cookies
 
 PatchBay supports cookies right out of the box... with an important caveat.
@@ -137,7 +138,7 @@ cookie called `__PBCookie` containing JSON text of all the cookies you set.
 
 If you bundle your static assets with PatchBay using the `build` script, the included webpack config will inject the
 necessary code to keep cookies working on the client completely transparently, whether they are served by PatchBay or
-by a dedicated static asset host. See [Building](#building) for more details on webpack config with PatchBay.
+by a dedicated static asset host. See [Building](#sec-building) for more details on webpack config with PatchBay.
 
 <sup>(To make the magic happen, PatchBay uses a little package called [cookie-interceptor](https://github.com/keqingrong/cookie-interceptor),
 which only supports a single instance; so, on the off chance you need to use it for your app, the instance is exposed
@@ -175,6 +176,7 @@ With that out of the way, here's a reference on our cookie API:
 
 ...
 
+<a id="sec-building"></a>
 ## Building
 
 PatchBay does not *require* any kind of build phase to run. All environment setup, including TypeScript compilation, is
@@ -189,7 +191,7 @@ a sensible default that works for many projects out of the box.
 
 ### webpack
 
-As discussed in [cookies](#cookies), the default webpack configuration injects some code into your static JS to keep
+As discussed in [cookies](#sec-cookies), the default webpack configuration injects some code into your static JS to keep
 cookies working transparently. This is its main purpose, and why we recommend always bundling your assets with the
 included webpack config.
 
