@@ -69,6 +69,7 @@ export interface CookieAttributes {
     domain?: string;
     path?: string;
     secure?: boolean;
+    httpOnly?: boolean;
     sameSite?: "strict" | "lax" | "none";
 }
 
@@ -127,6 +128,8 @@ export class CookieHandler {
 
         if (secure === true) out += "; Secure";
 
+        if (attributes.httpOnly === true) out += "; HttpOnly";
+
         this.guts[key] = out;
     }
 
@@ -135,14 +138,14 @@ export class CookieHandler {
         this.guts[key] = '"";Expires=Sat, 01 Jan 2000 00:01:00 GMT'
     }
 
-    clear() {
-        this.guts = {};
-        this.origin = {};
-    }
-
     stringify(): string | undefined {
         if (isEqual(this.origin, this.guts)) return undefined;
         return JSON.stringify(this.guts);
+    }
+
+    __reset() {
+        this.guts = {};
+        this.origin = {};
     }
 }
 
@@ -165,7 +168,7 @@ export abstract class Patch<Data = void> implements Patchable {
 
     fetch(req: PBRequest): Promise<Response> {
         return this.sendMutex.runExclusive(async () => {
-            this.cookies.clear();
+            this.cookies.__reset();
             this.queryStringParameters = {};
             this.routeParameters = {}
 
