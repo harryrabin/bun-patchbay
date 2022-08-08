@@ -1,11 +1,19 @@
 import {merge as ldMerge} from "lodash";
 
 export function HTMLResponse(text: string, options: ResponseInit = {}): Response {
-    let opt = {...options}
+    let opt = {...options};
     ldMerge(opt, {
         headers: {"content-type": "text/html"}
     });
-    return new Response(text, opt)
+    return new Response(text, opt);
+}
+
+export function JSONResponse(json: string, options: ResponseInit = {}): Response {
+    let opt = {...options};
+    ldMerge(opt, {
+        headers: {"content-type": "application/json"}
+    });
+    return new Response(json, opt);
 }
 
 export function TemplateResponse(templateName: string, context: any, options: {
