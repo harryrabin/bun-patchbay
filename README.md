@@ -76,18 +76,18 @@ a generic type, though you may not initially realize it because it defaults to `
 
 Essentially: abstract your failure points into one function, and do your business logic in another.
 
-## Templates
+## Templates <a id="sec-templates"></a>
 
 PatchBay includes [Handlebars](https://handlebarsjs.com), a fast and powerful templating engine. And, we made it
 even easier to use. Any `.hbs` files in the `views` directory will be compiled and made global via an object called
 `templates`. Accessing and using the templates looks like this:
 
 ```typescript
-// for ./views/user-homepage.hbs, you would write:
-const templateText: string = PatchBay.templates['user-homepage']({user: "johnsmith"});
+// To use ./views/user-homepage.hbs, you would write:
+const templateText: string = PatchBay.templates["user-homepage"]({user: "johnsmith"});
 
-// nested directories work too. for ./views/emails/login-attempt.hbs, you would write:
-PatchBay.templates['emails/login-attempt'];
+// Nested directories work too. To access ./views/emails/login-attempt.hbs, you would write:
+PatchBay.templates["emails/login-attempt"]
 ```
 
 We even made an easy way to return a template as an HTML response:
@@ -98,7 +98,7 @@ class UserHomepage extends Patch {
     // ...
    
    exit(): Response {
-       return PBUtils.TemplateResponse('user-homepage', {user: "johnsmith"});
+       return PBUtils.TemplateResponse("user-homepage", {user: "johnsmith"});
    }
 }
 ```
@@ -142,8 +142,8 @@ by a dedicated static asset host. See [Building](#building) for more details on 
 which only supports a single instance; so, on the off chance you need to use it for your app, the instance is exposed
 as `window.CookieInterceptor`)</sup>
 
-For edge cases where bundling with PatchBay is not doable, it's still an easy fix. For a simple solution, just add
-the following snippet to the head of your HTML page:
+For edge cases where bundling with PatchBay is not doable, this problem still has an easy fix. For a simple solution,
+just add the following snippet to the head of your HTML page:
 
 ```html
 <script type="text/javascript">
@@ -161,16 +161,16 @@ the following snippet to the head of your HTML page:
 
 This will parse `__PBCookie` on initial page load, and exposes a global function `updateFromPBCookie()` that you can
 call at any time to parse it again if you have reason to believe it was updated (e.g. in the `.then()` of a fetch that
-may set cookies).
+may set cookies). For a more "advanced" solution, you could implement cookie-interceptor yourself (it's pretty easy).
 
 While all of the above should work without a hitch, there are potential "real" fixes in the works. You may be interested
 in [this thread](https://github.com/whatwg/fetch/pull/1346), a proposal for a sensible long-term solution, and also the
 experimental [CookieChangeEvent](https://developer.mozilla.org/en-US/docs/Web/API/CookieChangeEvent) API which would at
-allow us to stop depending on cookie-interceptor.
+least allow us to stop depending on cookie-interceptor.
 
 With that out of the way, here's a reference on our cookie API:
 
-### setCookie
+### set(key: string, value: string, attributes?: CookieAttributes)
 
 ...
 
@@ -211,6 +211,8 @@ default build script.
 While the default project does a lot of heavy lifting, PatchBay can be used programmatically with just a few things to
 keep in mind to avoid unexpected or undefined behavior.
 
+### Global `PatchBay`
+
 The global `PatchBay` will always be set to the latest-created instance of PBApp. This is why `launch.ts` in the
 default project doesn't bother assigning the `PBApp` to anything. However, the constructor does return the instance,
 so you can assign it to be used programmatically if you want multiple `PBApp` instances running. Just remember to avoid
@@ -219,10 +221,15 @@ using the global `PatchBay`, or you may get some unexpected behavior.
 Nothing in the core library uses the global `PatchBay`, but some `PBUtils` helpers do. However, they have workarounds:
 
 ```typescript
-PBUtils.TemplateResponse('my-template', {data: "data"}, {
+PBUtils.TemplateResponse("my-template", {data: "data"}, {
     /* Pass in a template record like below to override
     the use of the global one */
    
     templates: customPBInstance.templates
-})
+});
 ```
+
+### Templates
+
+Unless you have a views folder in the root directory you'd like to use, you should disable the automatic loading of
+Handlebars templates to avoid an error on launch. See advanced usage in [templates](#sec-templates) for details.

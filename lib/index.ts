@@ -11,7 +11,7 @@ declare global {
     const PatchBay: PBApp;
 }
 
-type PBServeOptions = Omit<ServeOptions, "fetch" | "port">;
+export type PBServeOptions = Omit<ServeOptions, "fetch" | "port">;
 
 export interface MainBay {
     baseURL: string;
