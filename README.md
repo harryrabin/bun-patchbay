@@ -76,7 +76,8 @@ a generic type, though you may not initially realize it because it defaults to `
 
 Essentially: abstract your failure points into one function, and do your business logic in another.
 
-## Templates <a id="sec-templates"></a>
+<a id="sec-templates"></a>
+## Templates
 
 PatchBay includes [Handlebars](https://handlebarsjs.com), a fast and powerful templating engine. And, we made it
 even easier to use. Any `.hbs` files in the `views` directory will be compiled and made global via an object called
