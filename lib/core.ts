@@ -151,9 +151,10 @@ export class CookieHandler {
 
 export abstract class Patch<Data = void> implements Patchable {
     readonly route: Route;
-    readonly failedEntryResponse?: DefaultResponse;
+
     routeParameters: ParameterStore = {};
     queryStringParameters: ParameterStore = {};
+
     readonly cookies = new CookieHandler();
 
     private sendMutex = new Mutex();
@@ -168,10 +169,7 @@ export abstract class Patch<Data = void> implements Patchable {
 
     fetch(req: PBRequest): Promise<Response> {
         return this.sendMutex.runExclusive(async () => {
-            this.cookies.__reset();
-            this.queryStringParameters = {};
-            this.routeParameters = {}
-
+            this.reset();
             let data: Data;
             try {
                 data = await this.entry(req);
@@ -199,6 +197,12 @@ export abstract class Patch<Data = void> implements Patchable {
             if (e[0] === "") continue;
             this.queryStringParameters[e[0]] = e[1];
         }
+    }
+
+    private reset() {
+        this.cookies.__reset();
+        this.queryStringParameters = {};
+        this.routeParameters = {}
     }
 }
 
