@@ -3,4 +3,4 @@
 node_modules
 node_modules.bun
 bun.lockb
-tests
+test.ts
