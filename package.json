@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "description": "A modular, declarative web framework for Bun",
   "main": "index.ts",
-  "scripts": {
-    "build": "rm -r ./dist 2>/dev/null; webpack && bun bun launch.ts",
-    "dev": "export PB_ENV=dev && bun launch.ts",
-    "launch": "export PB_ENV=prod && bun launch.ts",
-    "clean": "rm -r ./dist ./node_modules 2>/dev/null",
-    "reinstall": "rm -r ./node_modules 2>/dev/null; bun i"
+  "author": "Harrison Rabin <harrison.rabin@gmail.com>",
+  "funding": {
+    "type" : "individual",
+    "url" : "https://paypal.me/harryrabin"
   },
-  "author": "Harrison Rabin <harry@rabinmgmt.com>",
+  "homepage": "https://github.com/harryrabin/bun-patchbay",
+  "bugs": "https://github.com/harryrabin/bun-patchbay/issues",
+  "repository": "github:harryrabin/bun-patchbay",
   "license": "GPL-3.0-only",
   "dependencies": {
     "@types/lodash": "^4.14.182",
