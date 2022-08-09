@@ -2,21 +2,27 @@
   "name": "bun-patchbay",
   "version": "0.1.1",
   "description": "A modular, declarative web framework for Bun",
+  "keywords": ["bun", "bun.js", "web", "http", "framework"],
   "main": "index.ts",
   "author": "Harrison Rabin <harrison.rabin@gmail.com>",
   "funding": {
-    "type" : "individual",
-    "url" : "https://paypal.me/harryrabin"
+    "type": "individual",
+    "url": "https://paypal.me/harryrabin"
   },
   "homepage": "https://github.com/harryrabin/bun-patchbay",
   "bugs": "https://github.com/harryrabin/bun-patchbay/issues",
   "repository": "github:harryrabin/bun-patchbay",
   "license": "GPL-3.0-only",
+  "scripts": {
+    "test": "bun test.ts"
+  },
   "dependencies": {
+    "@types/deep-extend": "^0.4.32",
     "@types/lodash": "^4.14.182",
     "@types/node": "^18.0.6",
     "async-mutex": "^0.3.2",
     "bun-types": "^0.1.4",
+    "deep-extend": "^0.6.0",
     "handlebars": "^4.7.7",
     "lodash": "^4.17.21"
   }
