@@ -1,6 +1,6 @@
 {
   "name": "bun-patchbay",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A modular, declarative web framework for Bun",
   "main": "index.ts",
   "author": "Harrison Rabin <harrison.rabin@gmail.com>",
