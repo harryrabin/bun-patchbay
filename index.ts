@@ -1,3 +1,8 @@
+/* Copyright (C) 2022 Harrison Rabin
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>. */
+
 import {Server, ServeOptions} from "bun";
 import {DefaultResponse, Patchable, PBRequest, Router} from "./core";
 import {compile as hbCompile} from "handlebars";

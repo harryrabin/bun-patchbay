@@ -1,3 +1,8 @@
+/* Copyright (C) 2022 Harrison Rabin
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>. */
+
 import * as fs from "fs";
 import * as path from "path";
 import {isEqual} from "lodash";
