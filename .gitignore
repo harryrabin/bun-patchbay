@@ -2,6 +2,4 @@
 .idea
 node_modules
 node_modules.bun
-dist
 bun.lockb
-scratch.ts
