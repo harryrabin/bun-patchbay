@@ -93,7 +93,7 @@ PatchBay.templates["emails/login-attempt"]
 
 We even made an easy way to return a template as an HTML response:
 ```typescript
-import {Patch, PBUtils} from "patchbay";
+import {Patch, PBUtils} from "bun-patchbay";
 
 class UserHomepage extends Patch {
     // ...
