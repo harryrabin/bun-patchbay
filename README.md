@@ -9,6 +9,18 @@ Just like Bun itself, PatchBay is in infancy – but as Bun grows, so too will P
 
 ---
 
+## Installation
+
+In most cases, you'll want to start with the default project. To do this, run:
+```shell
+bun create harryrabin/new-patchbay-project destination-folder
+```
+
+If you want to use PatchBay programmatically (see [Programmatic Usage](#sec-prog-use)), just run:
+```shell
+bun add bun-patchbay
+```
+
 ## The Basics
 
 PatchBay is named after the audio patch bays you find in music studios and on stages. Much like connecting cables on
@@ -209,6 +221,7 @@ the bundled JavaScript in an extremely efficient binary file called `node_module
 instead of the`node_modules` directory. This has some obvious speed perks for your app, so we included it in the
 default build script.
 
+<a id="sec-prog-use"></a>
 ## Programmatic Usage (Advanced)
 
 While the default project does a lot of heavy lifting, PatchBay can be used programmatically with just a few things to
