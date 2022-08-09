@@ -1,0 +1,10 @@
+.DS_Store
+.idea
+node_modules
+node_modules.bun
+dist
+bun.lockb
+scratch.ts
+README.md
+PatchBay-logo.png
+tests
