@@ -1,4 +1,5 @@
 import * as PB from ".";
+import {compile as hbCompile} from "handlebars";
 
 class Test {
     private readonly name: string;
@@ -26,6 +27,7 @@ class Test {
 }
 
 const tests: Test[] = [
+
     new Test("route creation", () => {
         const r1 = new PB.Route("/patchnamehere", "patch");
         if (r1.re.toString() !== "/^\\/patchnamehere\\/$/i")
@@ -60,7 +62,41 @@ const tests: Test[] = [
             throw "returned json from stringify() was incorrect"
 
         return true;
+    }),
+
+    new Test("PBUtils", async () => {
+        // HTMLResponse
+        const htmlResponse = PB.PBUtils.HTMLResponse("<h1>Hello</h1>")
+        if (await htmlResponse.text() !== "<h1>Hello</h1>")
+            throw "HTMLResponse did not accept text correctly";
+
+        // JSONResponse
+        const testObject = {
+            keyOne: "one",
+            keyTwo: "two"
+        }
+
+        const jsonResponse = PB.PBUtils.JSONResponse(testObject)
+        if (await jsonResponse.text() !== '{"keyOne":"one","keyTwo":"two"}')
+            throw "JSONResponse didn't parse testObject correctly";
+
+        const jsonResponseString = PB.PBUtils.JSONResponse(JSON.stringify(testObject));
+        if (await jsonResponseString.text() !== '{"keyOne":"one","keyTwo":"two"}')
+            throw "JSONResponse didn't accept JSON text correctly";
+
+        // TemplateResponse
+        const templateResponse = PB.PBUtils.TemplateResponse('user-page', {user: "John"}, {
+            templates: {
+                "user-page": hbCompile("<p>Hello {{user}}</p>")
+            }
+        });
+
+        if (await templateResponse.text() !== "<p>Hello John</p>")
+            throw "TemplateResponse did not use the template correctly";
+
+        return true;
     })
+
 ]
 
 await Promise.all(tests.map(t => t.run()));
