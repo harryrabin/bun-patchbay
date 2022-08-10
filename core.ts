@@ -178,9 +178,11 @@ export abstract class Patch<Data = void> implements Patchable {
         this.route = new Route(route, "patch");
     }
 
-    intercept(req: PBRequest): "continue" | "return" {
-        return "continue";
-    }
+    // intercept(req: PBRequest): "continue" | "return" {
+    //     return "continue";
+    // }
+
+    intercept?: ((req: PBRequest) => "continue" | "return") = undefined;
 
     abstract entry(req: PBRequest): Data | Promise<Data>;
 
@@ -312,7 +314,11 @@ export abstract class Router implements Patchable {
             break;
         }
 
-        if (out !== null && out[0] instanceof Patch && out[0].intercept(req) === null) out = null;
+        if (out !== null
+            && out[0] instanceof Patch
+            && out[0].intercept
+            && out[0].intercept === null)
+            out = null;
 
         return out;
     }
