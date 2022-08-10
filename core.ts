@@ -211,6 +211,7 @@ export abstract class Patch<Data = void> implements Patchable {
                 if (e instanceof Response) return e;
                 else throw e;
             }
+            this.reset();
             return this.exit(data);
         });
     }
