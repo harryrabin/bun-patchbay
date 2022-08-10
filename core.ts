@@ -285,7 +285,6 @@ export class LocalRedirect extends Patch {
 export abstract class Router implements Patchable {
     readonly route: Route;
     abstract readonly patches: Patchable[];
-    protected defaultResponse?: DefaultResponse;
 
     constructor(route: string) {
         this.route = new Route(route, "router");
@@ -295,24 +294,27 @@ export abstract class Router implements Patchable {
         let rte = path.replace(this.route.re, "");
         if (rte === "") rte = "/";
 
-        const matchedPatches = this.patches.filter($ => $.route.re.test(rte));
-        if (matchedPatches.length == 0) return null;
+        const matchedPatchables = this.patches.filter($ => $.route.re.test(rte));
+        if (matchedPatchables.length == 0) return null;
 
-        for (const patch of matchedPatches) {
-            if (patch instanceof Router) {
-                const final = patch.getFinalPatchable(rte, req);
-                if (final) return final;
-                if (patch.defaultResponse)
-                    throw extractResponse(patch.defaultResponse);
+        let out: [Patchable, string] | null = null;
+
+        for (const patchable of matchedPatchables) {
+            if (patchable instanceof Router) {
+                const final = patchable.getFinalPatchable(rte, req);
+                if (final) {
+                    out = final;
+                    break;
+                }
                 continue;
             }
-            if (patch instanceof Patch && patch.intercept(req) === "return") {
-                return null;
-            }
-            return [patch, rte];
+            out = [patchable, rte];
+            break;
         }
 
-        return null;
+        if (out !== null && out[0] instanceof Patch && out[0].intercept(req) === null) out = null;
+
+        return out;
     }
 
     async fetch(req: PBRequest): Promise<Response> {
@@ -324,10 +326,7 @@ export abstract class Router implements Patchable {
             else throw e;
         }
 
-        if (!finalPatchable) {
-            if (this.defaultResponse) return extractResponse(this.defaultResponse);
-            throw new RouteNotFound();
-        }
+        if (!finalPatchable) throw new RouteNotFound();
 
         return finalPatchable[0].fetch(new PBRequest(req, finalPatchable[1]));
     }
@@ -337,19 +336,15 @@ export class StaticAssetRouter extends Router {
     readonly patches: Patchable[] = [];
 
     constructor(route: string, directory: string, options: {
-        defaultResponse?: DefaultResponse,
         customPatches?: Patchable[]
     } = {}) {
         super(route);
-        this.defaultResponse = options.defaultResponse;
 
         const dirContents = fs.readdirSync(directory, {withFileTypes: true});
         for (const item of dirContents) {
             if (item.isDirectory()) {
                 this.patches.push(
-                    new StaticAssetRouter("/" + item.name, path.join(directory, item.name), {
-                        defaultResponse: this.defaultResponse
-                    }));
+                    new StaticAssetRouter("/" + item.name, path.join(directory, item.name)));
                 continue;
             }
 
