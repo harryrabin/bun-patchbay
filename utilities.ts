@@ -11,7 +11,7 @@ export function HTMLResponse(text: string, options: ResponseInit = {}): Response
     return new Response(text, opt);
 }
 
-export function JSONResponse(json: string, options?: ResponseInit): Response {
+export function JSONResponse(json: string, options: ResponseInit = {}): Response {
     let opt = {...options};
     deepExtend(opt, {headers: {"content-type": "application/json"}});
     return new Response(json, opt);
