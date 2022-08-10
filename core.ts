@@ -197,6 +197,11 @@ export abstract class Patch<Data = void> implements Patchable {
         return false;
     }
 
+    __safe_intercept(req: PBRequest): boolean {
+        this.reset();
+        return this.intercept(req);
+    }
+
     abstract entry(req: PBRequest): Data | Promise<Data>;
 
     abstract exit(data: Data): Response | Promise<Response>;
@@ -211,7 +216,6 @@ export abstract class Patch<Data = void> implements Patchable {
                 if (e instanceof Response) return e;
                 else throw e;
             }
-            this.reset();
             return this.exit(data);
         });
     }
@@ -330,7 +334,7 @@ export abstract class Router implements Patchable {
 
         if (out !== null
             && out[0] instanceof Patch
-            && out[0].intercept(req))
+            && out[0].__safe_intercept(req))
             out = null;
 
         return out;
