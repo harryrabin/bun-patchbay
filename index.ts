@@ -5,7 +5,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>. */
 
 import {ServeOptions, Server} from "bun";
 import {DefaultResponse, extractResponse, Patchable, PBRequest, QuickRouter, RouteNotFound, Router} from "./core";
-import {compile as hbCompile} from "handlebars";
+import * as hb from "handlebars";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -37,6 +37,7 @@ export class PBApp {
     readonly port: number;
     readonly baseURL: string;
     readonly templates: Record<string, HandlebarsTemplateDelegate> = {};
+    readonly handlebars = hb;
 
     private readonly mainBay: MainBay;
 
@@ -108,7 +109,7 @@ function loadTemplates(target: object, dir: string, options: {
         let templateText = fs.readFileSync(path.resolve(dir, item.name), "utf-8");
 
         Object.defineProperty(target, templateName, {
-            value: hbCompile(templateText, options.hbOptions),
+            value: hb.compile(templateText, options.hbOptions),
             writable: false
         });
     }
