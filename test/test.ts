@@ -73,10 +73,10 @@ const tests: Test[] = [
         const cookieFour = ch.get("cookieFour");
         if (cookieFour !== "four; Expires=Sat, 01 Jan 2000 00:00:00 GMT; Max-Age=3000; " +
             "Domain=http://localhost:3000; Path=/; SameSite=None; Secure; HttpOnly")
-            throw "set() did not set attributes correctly"
+            throw "set() did not set attributes correctly";
 
         if (PB.CookieHandler.strip(cookieFour) !== "four")
-            throw "static strip() did not strip the cookie correctly"
+            throw "static strip() did not strip the cookie correctly";
 
         return true;
     }),
