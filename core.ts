@@ -103,7 +103,44 @@ export class CookieHandler {
             return;
         }
 
-        let out = value;
+        this.guts[key] = CookieHandler.addAttributes(value, attributes);
+    }
+
+    unset(key: string) {
+        if (!this.guts[key]) return;
+        this.guts[key] = '"";Expires=Sat, 01 Jan 2000 00:01:00 GMT'
+    }
+
+    stringify(options: {
+        secure?: boolean;
+    } = {}): string | undefined {
+        let equal = true;
+        for (const key in this.guts) {
+            if (this.guts[key] !== this.origin[key]){
+                equal = false;
+                break;
+            }
+        }
+        let secure = options.secure || true;
+        let out = equal ? undefined : JSON.stringify(this.guts);
+        if (out && secure) out += "; Secure";
+        return out;
+    }
+
+    __reset() {
+        this.guts = {};
+        this.origin = {};
+    }
+
+    static strip(cookie: string): string | undefined  {
+        let matches = cookie.match(/^[^;]+/);
+        if (!matches) return;
+        if (matches?.length < 1) return;
+        return matches[0];
+    }
+
+    private static addAttributes(cookie: string, attributes: CookieAttributes): string {
+        let out = cookie;
 
         if (attributes.expires instanceof Date) {
             out += `; Expires=${attributes.expires.toUTCString()}`;
@@ -138,29 +175,7 @@ export class CookieHandler {
 
         if (attributes.httpOnly === true) out += "; HttpOnly";
 
-        this.guts[key] = out;
-    }
-
-    unset(key: string) {
-        if (!this.guts[key]) return;
-        this.guts[key] = '"";Expires=Sat, 01 Jan 2000 00:01:00 GMT'
-    }
-
-    stringify(): string | undefined {
-        // if (isEqual(this.origin, this.guts)) return undefined;
-        let equal = true;
-        for (const key in this.guts) {
-            if (this.guts[key] !== this.origin[key]){
-                equal = false;
-                break;
-            }
-        }
-        return equal ? undefined : JSON.stringify(this.guts);
-    }
-
-    __reset() {
-        this.guts = {};
-        this.origin = {};
+        return out;
     }
 }
 

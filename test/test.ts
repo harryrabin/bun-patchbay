@@ -58,8 +58,25 @@ const tests: Test[] = [
 
         ch.set("cookieThree", "three");
 
-        if (ch.stringify() !== '{"cookieOne":"one","cookieTwo":"two","cookieThree":"three"}')
+        if (ch.stringify() !== '{"cookieOne":"one","cookieTwo":"two","cookieThree":"three"}; Secure')
             throw "returned json from stringify() was incorrect"
+
+        ch.set("cookieFour", "four", {
+            expires: new Date(Date.UTC(2000, 0, 1, 0, 0)),
+            max_age: 3000,
+            domain: "http://localhost:3000",
+            path: "/",
+            httpOnly: true,
+            sameSite: "none"
+        });
+
+        const cookieFour = ch.get("cookieFour");
+        if (cookieFour !== "four; Expires=Sat, 01 Jan 2000 00:00:00 GMT; Max-Age=3000; " +
+            "Domain=http://localhost:3000; Path=/; SameSite=None; Secure; HttpOnly")
+            throw "set() did not set attributes correctly"
+
+        if (PB.CookieHandler.strip(cookieFour) !== "four")
+            throw "static strip() did not strip the cookie correctly"
 
         return true;
     }),
