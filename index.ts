@@ -3,8 +3,8 @@
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>. */
 
-import {Server, ServeOptions} from "bun";
-import {DefaultResponse, Patchable, PBRequest, Router} from "./core";
+import {ServeOptions, Server} from "bun";
+import {DefaultResponse, extractResponse, Patchable, PBRequest, QuickRouter, RouteNotFound, Router} from "./core";
 import {compile as hbCompile} from "handlebars";
 import * as fs from "fs";
 import * as path from "path";
@@ -16,13 +16,14 @@ declare global {
     const PatchBay: PBApp;
 }
 
-export type PBServeOptions = Omit<ServeOptions, "fetch" | "port">;
+export type PBServeOptions = Omit<ServeOptions, "fetch" | "port" | "error">;
 
 export interface MainBay {
     baseURL: string;
     port: number;
     patches: Patchable[];
-    defaultResponse?: DefaultResponse;
+    responseNotFound?: DefaultResponse;
+    responseError?: DefaultResponse;
 }
 
 export interface PBAppOptions {
@@ -44,11 +45,7 @@ export class PBApp {
         this.port = mainBay.port;
         this.baseURL = mainBay.baseURL;
 
-        this.mainRouter = new class extends Router {
-            patches = mainBay.patches;
-            defaultResponse = mainBay.defaultResponse ||
-                new Response("404: not found", {status: 404});
-        }(mainBay.baseURL);
+        this.mainRouter = new QuickRouter(mainBay.baseURL, mainBay.patches);
 
         Object.defineProperty(global, "PatchBay", {
             value: this,
@@ -71,6 +68,17 @@ export class PBApp {
                 let overrideURL = req.url;
                 if (overrideURL.at(-1) !== '/') overrideURL += '/';
                 return _this.mainRouter.fetch(new PBRequest(req, overrideURL));
+            },
+            error(err) {
+                if (err instanceof RouteNotFound) {
+                    return _this.mainBay.responseNotFound ?
+                        extractResponse(_this.mainBay.responseNotFound)
+                        : new Response("404: not found", {status:404});
+                }
+
+                return _this.mainBay.responseError ?
+                    extractResponse(_this.mainBay.responseError)
+                    : new Response("500: server error", {status:500});
             }
         });
         console.log(`Server started on port ${server.port}`);

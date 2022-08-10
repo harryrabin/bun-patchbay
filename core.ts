@@ -12,7 +12,7 @@ export type ParameterStore = Record<string, string | undefined>
 
 export type DefaultResponse = Response | (() => Response);
 
-function extractResponse(res: DefaultResponse): Response {
+export function extractResponse(res: DefaultResponse): Response {
     return res instanceof Response ? res.clone() : res();
 }
 
@@ -33,12 +33,12 @@ export class PBRequest {
 export class Route {
     private static readonly paramRegExp = /\{([^}]+)}/gi;
 
-    // readonly str: string;
+    readonly str: string;
     readonly re: RegExp;
     readonly parameterNames: string[] = [];
 
     constructor(route: string, routeType: "patch" | "router") {
-        // this.str = route;
+        this.str = route;
 
         if (routeType === "router") {
             if (route === "/") this.re = new RegExp("^(?=.*/$)", "i");
@@ -178,11 +178,9 @@ export abstract class Patch<Data = void> implements Patchable {
         this.route = new Route(route, "patch");
     }
 
-    // intercept(req: PBRequest): "continue" | "return" {
-    //     return "continue";
-    // }
-
-    intercept?: ((req: PBRequest) => "continue" | "return") = undefined;
+    intercept(req: PBRequest): boolean {
+        return false;
+    }
 
     abstract entry(req: PBRequest): Data | Promise<Data>;
 
@@ -316,8 +314,7 @@ export abstract class Router implements Patchable {
 
         if (out !== null
             && out[0] instanceof Patch
-            && out[0].intercept
-            && out[0].intercept(req) === "return")
+            && out[0].intercept(req))
             out = null;
 
         return out;
@@ -335,6 +332,16 @@ export abstract class Router implements Patchable {
         if (!finalPatchable) throw new RouteNotFound();
 
         return finalPatchable[0].fetch(new PBRequest(req, finalPatchable[1]));
+    }
+}
+
+export class QuickRouter extends Router {
+    readonly patches: Patchable[];
+
+    constructor(route: string, patches: Patchable[]) {
+        super(route);
+
+        this.patches = patches;
     }
 }
 
