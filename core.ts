@@ -178,6 +178,10 @@ export abstract class Patch<Data = void> implements Patchable {
         this.route = new Route(route, "patch");
     }
 
+    intercept(req: PBRequest): "continue" | "return" {
+        return "continue";
+    }
+
     abstract entry(req: PBRequest): Data | Promise<Data>;
 
     abstract exit(data: Data): Response | Promise<Response>;
@@ -287,7 +291,7 @@ export abstract class Router implements Patchable {
         this.route = new Route(route, "router");
     }
 
-    private getFinalPatchable(path: string): [Patchable, string] | null {
+    private getFinalPatchable(path: string, req: PBRequest): [Patchable, string] | null {
         let rte = path.replace(this.route.re, "");
         if (rte === "") rte = "/";
 
@@ -296,11 +300,14 @@ export abstract class Router implements Patchable {
 
         for (const patch of matchedPatches) {
             if (patch instanceof Router) {
-                const final = patch.getFinalPatchable(rte);
+                const final = patch.getFinalPatchable(rte, req);
                 if (final) return final;
                 if (patch.defaultResponse)
                     throw extractResponse(patch.defaultResponse);
                 continue;
+            }
+            if (patch instanceof Patch && patch.intercept(req) === "return") {
+                return null;
             }
             return [patch, rte];
         }
@@ -311,7 +318,7 @@ export abstract class Router implements Patchable {
     async fetch(req: PBRequest): Promise<Response> {
         let finalPatchable: [Patchable, string] | null;
         try {
-            finalPatchable = this.getFinalPatchable(req.url)
+            finalPatchable = this.getFinalPatchable(req.url, req)
         } catch (e) {
             if (e instanceof Response) return e;
             else throw e;
