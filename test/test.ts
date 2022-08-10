@@ -1,4 +1,4 @@
-import * as PB from ".";
+import * as PB from "..";
 import {compile as hbCompile} from "handlebars";
 
 class Test {
