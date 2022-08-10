@@ -5,7 +5,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>. */
 
 import {ServeOptions, Server} from "bun";
 import {DefaultResponse, extractResponse, Patchable, PBRequest, QuickRouter, RouteNotFound, Router} from "./core";
-import * as hb from "handlebars";
+import * as Handlebars from "handlebars";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -28,8 +28,10 @@ export interface MainBay {
 
 export interface PBAppOptions {
     noHandlebars?: boolean;
+    handlebarsSetup?(handlebars: typeof Handlebars): void;
     handlebarsOptions?: CompileOptions;
     viewDirectory?: string;
+    skipGlobal?: boolean;
 }
 
 export class PBApp {
@@ -37,7 +39,6 @@ export class PBApp {
     readonly port: number;
     readonly baseURL: string;
     readonly templates: Record<string, HandlebarsTemplateDelegate> = {};
-    readonly handlebars = hb;
 
     private readonly mainBay: MainBay;
 
@@ -48,14 +49,16 @@ export class PBApp {
 
         this.mainRouter = new QuickRouter(mainBay.baseURL, mainBay.patches);
 
-        Object.defineProperty(global, "PatchBay", {
+        if (!options.skipGlobal) Object.defineProperty(global, "PatchBay", {
             value: this,
             writable: false
         });
 
-        const viewDir = options.viewDirectory || "./views";
-        if (!options.noHandlebars)
-            loadTemplates(this.templates, viewDir, {hbOptions: options.handlebarsOptions});
+        if (!options.noHandlebars) {
+            const viewDir = options.viewDirectory || "./views";
+            if (options.handlebarsSetup) options.handlebarsSetup(Handlebars);
+            this.loadTemplates(viewDir, {hbOptions: options.handlebarsOptions});
+        }
     }
 
 
@@ -85,32 +88,32 @@ export class PBApp {
         console.log(`Server started on port ${server.port}`);
         return server;
     }
-}
 
-function loadTemplates(target: object, dir: string, options: {
-    parent?: string;
-    hbOptions?: CompileOptions;
-} = {}) {
-    const contents = fs.readdirSync(path.normalize(dir), {withFileTypes: true});
-    const parentName = options.parent ? (options.parent + "/") : "";
+    private loadTemplates(dir: string, options: {
+        parent?: string;
+        hbOptions?: CompileOptions;
+    } = {}) {
+        const contents = fs.readdirSync(path.normalize(dir), {withFileTypes: true});
+        const parentName = options.parent ? (options.parent + "/") : "";
 
-    for (const item of contents) {
-        if (item.isDirectory()) {
-            loadTemplates(target, path.resolve(dir, item.name), {
-                ...options,
-                parent: parentName + item.name
+        for (const item of contents) {
+            if (item.isDirectory()) {
+                this.loadTemplates(path.resolve(dir, item.name), {
+                    ...options,
+                    parent: parentName + item.name
+                });
+                continue;
+            }
+
+            if (path.extname(item.name) !== ".hbs") continue;
+
+            const templateName = parentName + path.basename(item.name, ".hbs");
+            let templateText = fs.readFileSync(path.resolve(dir, item.name), "utf-8");
+
+            Object.defineProperty(this.templates, templateName, {
+                value: Handlebars.compile(templateText, options.hbOptions),
+                writable: false
             });
-            continue;
         }
-
-        if (path.extname(item.name) !== ".hbs") continue;
-
-        const templateName = parentName + path.basename(item.name, ".hbs");
-        let templateText = fs.readFileSync(path.resolve(dir, item.name), "utf-8");
-
-        Object.defineProperty(target, templateName, {
-            value: hb.compile(templateText, options.hbOptions),
-            writable: false
-        });
     }
 }
