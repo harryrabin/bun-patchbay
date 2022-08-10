@@ -3,17 +3,17 @@ import {compile as hbCompile} from "handlebars";
 
 class Test {
     private readonly name: string;
-    private readonly func: () => boolean | Promise<boolean>;
+    private readonly fn: () => boolean | Promise<boolean>;
 
     constructor(name: string, fn: () => boolean | Promise<boolean>) {
         this.name = name;
-        this.func = fn;
+        this.fn = fn;
     }
 
-    async run() {
+    async run(): Promise<void> {
         let err: any = false;
         try {
-            if (await this.func() === true) {
+            if (await this.fn() === true) {
                 console.log(`Test "${this.name}" passed\n`);
                 return;
             }
