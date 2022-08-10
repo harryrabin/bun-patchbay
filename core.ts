@@ -5,7 +5,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>. */
 
 import * as fs from "fs";
 import * as path from "path";
-import {isEqual} from "lodash";
 import {Mutex} from "async-mutex";
 import mimeTypes from "./mime-types";
 
@@ -94,6 +93,10 @@ export class CookieHandler {
         this.guts = {...this.origin};
     }
 
+    get(key: string): string | undefined {
+        return this.guts[key];
+    }
+
     set(key: string, value: string, attributes?: CookieAttributes) {
         if (!attributes) {
             this.guts[key] = value;
@@ -144,8 +147,15 @@ export class CookieHandler {
     }
 
     stringify(): string | undefined {
-        if (isEqual(this.origin, this.guts)) return undefined;
-        return JSON.stringify(this.guts);
+        // if (isEqual(this.origin, this.guts)) return undefined;
+        let equal = true;
+        for (const key in this.guts) {
+            if (this.guts[key] !== this.origin[key]){
+                equal = false;
+                break;
+            }
+        }
+        return equal ? undefined : JSON.stringify(this.guts);
     }
 
     __reset() {
