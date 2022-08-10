@@ -317,7 +317,7 @@ export abstract class Router implements Patchable {
         if (out !== null
             && out[0] instanceof Patch
             && out[0].intercept
-            && out[0].intercept === null)
+            && out[0].intercept(req) === null)
             out = null;
 
         return out;
