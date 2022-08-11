@@ -1,12 +1,11 @@
 import * as PB from "..";
-import {StaticPatch} from "..";
 
 const AdminRouter = new PB.QuickRouter("/admin", [
-    new StaticPatch({
+    new PB.StaticPatch({
         route: "/home",
         response: new Response("admin home")
     }),
-    new StaticPatch({
+    new PB.StaticPatch({
         route: "/login",
         response: new Response("admin login")
     })
