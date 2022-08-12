@@ -245,60 +245,49 @@ export abstract class Patch<Data = void> implements Patchable {
     }
 }
 
-export class StaticPatch extends Patch {
-    readonly response: DefaultResponse;
+export class StaticPatch implements Patchable {
+    readonly route: Route;
+    private readonly response: DefaultResponse;
 
     constructor(options: {
         route: string,
         response: DefaultResponse
     }) {
-        super(options.route);
+        this.route = new Route(options.route, "patch");
         this.response = options.response;
     }
 
-    entry(req: PBRequest) {
-    }
-
-    exit(): Response {
-        return extractResponse(this.response)
+    fetch(_: PBRequest): Promise<Response> {
+        return Promise.resolve(extractResponse(this.response))
     }
 }
 
-export class GlobalRedirect extends Patch {
-    private readonly to: string;
+export class GlobalRedirect implements Patchable{
+    readonly route: Route;
 
-    constructor(route: string, to: string) {
-        super(route);
-        this.to = to;
+    constructor(route: string, private readonly to: string) {
+        this.route = new Route(route, "patch");
     }
 
-    entry(req: PBRequest) {
-    }
-
-    exit(): Response {
-        return Response.redirect(this.to)
+    fetch(req: PBRequest): Promise<Response> {
+        return Promise.resolve(Response.redirect(this.to))
     }
 }
 
-export class LocalRedirect extends Patch {
-    private readonly to: string;
+export class LocalRedirect implements Patchable {
+    readonly route: Route;
     private readonly filter: RegExp;
-    private finalTo = "";
 
-    constructor(route: string, to: string) {
-        super(route);
+    constructor(route: string, private readonly to: string) {
+        this.route = new Route(route, "patch");
         this.filter = new RegExp(route + (route === "/" ? "$" : "/$"));
-        this.to = to;
     }
 
-    entry(req: PBRequest) {
-        this.finalTo = req.raw().url;
-        if (this.finalTo.at(-1) !== "/") this.finalTo += "/";
-        this.finalTo = this.finalTo.replace(this.filter, this.to);
-    }
-
-    exit(): Response {
-        return Response.redirect(this.finalTo);
+    fetch(req: PBRequest): Promise<Response> {
+        let out = req.raw().url;
+        if (out.at(-1) !== "/") out += "/";
+        out = out.replace(this.filter, this.to);
+        return Promise.resolve(Response.redirect(out));
     }
 }
 
