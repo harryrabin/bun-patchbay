@@ -186,11 +186,11 @@ export abstract class Patch<Data = void> implements Patchable {
     routeParameters: ParameterStore = {};
     queryStringParameters: ParameterStore = {};
 
+    // @ts-ignore
+    readonly __pbRequest: PBRequest = null;
     readonly cookies = new CookieHandler();
 
     private sendMutex = new Mutex();
-    // @ts-ignore
-    private currentReq: PBRequest = null;
 
     constructor(route: string) {
         this.route = new Route(route, "patch");
@@ -212,7 +212,10 @@ export abstract class Patch<Data = void> implements Patchable {
     fetch(req: PBRequest): Promise<Response> {
         return this.sendMutex.runExclusive(async () => {
             this.reset();
-            this.currentReq = req;
+            Object.defineProperty(this, "__pbRequest", {
+                value: req,
+                writable: false
+            })
             let data: Data;
             try {
                 data = await this.entry(req);
@@ -225,7 +228,7 @@ export abstract class Patch<Data = void> implements Patchable {
     }
 
     parseRouteParams() {
-        const urlMatches = this.currentReq.PBurl.match(this.route.re);
+        const urlMatches = this.__pbRequest.PBurl.match(this.route.re);
         if (!urlMatches || urlMatches.length < 2) return;
         for (let i = 0; i < this.route.parameterNames.length; i++) {
             this.routeParameters[this.route.parameterNames[i]] = urlMatches[i + 1];
