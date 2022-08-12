@@ -17,8 +17,7 @@ export function extractResponse(res: DefaultResponse): Response {
 }
 
 export class PBRequest extends Request {
-    // @ts-ignore
-    readonly PBurl: string = null;
+    readonly PBurl: string = this.url;
 
     static ify(req: Request, url?: string): PBRequest {
         const base = req.clone();
@@ -26,8 +25,7 @@ export class PBRequest extends Request {
             value: url || req.url,
             writable: false
         });
-        // @ts-ignore
-        return base;
+        return base as PBRequest;
     }
 }
 
@@ -215,7 +213,7 @@ export abstract class Patch<Data = void> implements Patchable {
             Object.defineProperty(this, "__pbRequest", {
                 value: req,
                 writable: false
-            })
+            });
             let data: Data;
             try {
                 data = await this.entry(req);
