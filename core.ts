@@ -81,7 +81,7 @@ export class CookieHandler {
     private guts: ParameterStore = {};
     private origin: ParameterStore = {};
 
-    init(source: PBRequest) {
+    init(source: Request) {
         const rawHeader = source.headers.get("cookie");
         if (!rawHeader) return;
 
@@ -188,27 +188,30 @@ export abstract class Patch<Data = void> implements Patchable {
     readonly cookies = new CookieHandler();
 
     private sendMutex = new Mutex();
+    // @ts-ignore
+    private currentReq: PBRequest = null;
 
     constructor(route: string) {
         this.route = new Route(route, "patch");
     }
 
-    intercept(req: PBRequest): boolean {
+    intercept(req: Request): boolean {
         return false;
     }
 
-    __safe_intercept(req: PBRequest): boolean {
+    __safe_intercept(req: Request): boolean {
         this.reset();
         return this.intercept(req);
     }
 
-    abstract entry(req: PBRequest): Data | Promise<Data>;
+    abstract entry(req: Request): Data | Promise<Data>;
 
     abstract exit(data: Data): Response | Promise<Response>;
 
     fetch(req: PBRequest): Promise<Response> {
         return this.sendMutex.runExclusive(async () => {
             this.reset();
+            this.currentReq = req;
             let data: Data;
             try {
                 data = await this.entry(req);
@@ -220,8 +223,8 @@ export abstract class Patch<Data = void> implements Patchable {
         });
     }
 
-    parseRouteParams(req: PBRequest) {
-        const urlMatches = req.PBurl.match(this.route.re);
+    parseRouteParams() {
+        const urlMatches = this.currentReq.PBurl.match(this.route.re);
         if (!urlMatches || urlMatches.length < 2) return;
         for (let i = 0; i < this.route.parameterNames.length; i++) {
             this.routeParameters[this.route.parameterNames[i]] = urlMatches[i + 1];
