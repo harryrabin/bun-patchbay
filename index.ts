@@ -71,7 +71,7 @@ export class PBApp {
             fetch(req: Request): Promise<Response> {
                 let overrideURL = req.url;
                 if (overrideURL.at(-1) !== '/') overrideURL += '/';
-                return _this.mainRouter.fetch(new PBRequest(req, overrideURL));
+                return _this.mainRouter.fetch(PBRequest.ify(req, overrideURL));
             },
             error(err) {
                 if (err instanceof RouteNotFound) {

@@ -16,17 +16,17 @@ export function extractResponse(res: DefaultResponse): Response {
     return res instanceof Response ? res.clone() : res();
 }
 
-export class PBRequest {
-    private readonly _raw: Request;
-    readonly url: string;
+export class PBRequest extends Request {
+    // @ts-ignore
+    PBurl: string;
 
-    constructor(req: Request | PBRequest, overrideURL?: string) {
-        this._raw = req instanceof PBRequest ? req.raw() : req;
-        this.url = overrideURL || req.url;
-    }
-
-    raw(): Request {
-        return this._raw.clone();
+    static ify(req: Request, url?: string): PBRequest {
+        const base = req.clone();
+        Object.defineProperty(base, "PBurl", {
+            value: url || req.url
+        })
+        // @ts-ignore
+        return base;
     }
 }
 
@@ -82,7 +82,7 @@ export class CookieHandler {
     private origin: ParameterStore = {};
 
     init(source: PBRequest) {
-        const rawHeader = source.raw().headers.get("cookie");
+        const rawHeader = source.headers.get("cookie");
         if (!rawHeader) return;
 
         const cookies = rawHeader.split("; ").map($ => $.split("="));
@@ -221,7 +221,7 @@ export abstract class Patch<Data = void> implements Patchable {
     }
 
     parseRouteParams(req: PBRequest) {
-        const urlMatches = req.url.match(this.route.re);
+        const urlMatches = req.PBurl.match(this.route.re);
         if (!urlMatches || urlMatches.length < 2) return;
         for (let i = 0; i < this.route.parameterNames.length; i++) {
             this.routeParameters[this.route.parameterNames[i]] = urlMatches[i + 1];
@@ -284,7 +284,7 @@ export class LocalRedirect implements Patchable {
     }
 
     fetch(req: PBRequest): Promise<Response> {
-        let out = req.raw().url;
+        let out = req.url;
         if (out.at(-1) !== "/") out += "/";
         out = out.replace(this.filter, this.to);
         return Promise.resolve(Response.redirect(out));
@@ -332,7 +332,7 @@ export abstract class Router implements Patchable {
     async fetch(req: PBRequest): Promise<Response> {
         let finalPatchable: [Patchable, string] | null;
         try {
-            finalPatchable = this.getFinalPatchable(req.url, req)
+            finalPatchable = this.getFinalPatchable(req.PBurl, req)
         } catch (e) {
             if (e instanceof Response) return e;
             else throw e;
@@ -340,7 +340,7 @@ export abstract class Router implements Patchable {
 
         if (!finalPatchable) throw new RouteNotFound();
 
-        return finalPatchable[0].fetch(new PBRequest(req, finalPatchable[1]));
+        return finalPatchable[0].fetch(PBRequest.ify(req, finalPatchable[1]));
     }
 }
 
