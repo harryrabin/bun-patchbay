@@ -18,13 +18,14 @@ export function extractResponse(res: DefaultResponse): Response {
 
 export class PBRequest extends Request {
     // @ts-ignore
-    PBurl: string;
+    readonly PBurl: string = null;
 
     static ify(req: Request, url?: string): PBRequest {
         const base = req.clone();
         Object.defineProperty(base, "PBurl", {
-            value: url || req.url
-        })
+            value: url || req.url,
+            writable: false
+        });
         // @ts-ignore
         return base;
     }
