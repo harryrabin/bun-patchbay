@@ -11,10 +11,11 @@ export function HTMLResponse(text: string, options: ResponseInit = {}): Response
     return new Response(text, opt);
 }
 
-export function JSONResponse(json: string, options?: ResponseInit): Response {
+export function JSONResponse(json: string | object, options: ResponseInit = {}): Response {
     let opt = {...options};
     deepExtend(opt, {headers: {"content-type": "application/json"}});
-    return new Response(json, opt);
+    const text = typeof json === "string" ? json : JSON.stringify(json)
+    return new Response(text, opt);
 }
 
 export function TemplateResponse(templateName: string, context: any, options: {

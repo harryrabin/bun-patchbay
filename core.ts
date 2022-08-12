@@ -12,33 +12,33 @@ export type ParameterStore = Record<string, string | undefined>
 
 export type DefaultResponse = Response | (() => Response);
 
-function extractResponse(res: DefaultResponse): Response {
+export function extractResponse(res: DefaultResponse): Response {
     return res instanceof Response ? res.clone() : res();
 }
 
-export class PBRequest {
-    private readonly _raw: Request;
-    readonly url: string;
+export class PBRequest extends Request {
+    // @ts-ignore
+    PBurl: string;
 
-    constructor(req: Request | PBRequest, overrideURL?: string) {
-        this._raw = req instanceof PBRequest ? req.raw() : req;
-        this.url = overrideURL || req.url;
-    }
-
-    raw(): Request {
-        return this._raw.clone();
+    static ify(req: Request, url?: string): PBRequest {
+        const base = req.clone();
+        Object.defineProperty(base, "PBurl", {
+            value: url || req.url
+        })
+        // @ts-ignore
+        return base;
     }
 }
 
 export class Route {
     private static readonly paramRegExp = /\{([^}]+)}/gi;
 
-    // readonly str: string;
+    readonly str: string;
     readonly re: RegExp;
     readonly parameterNames: string[] = [];
 
     constructor(route: string, routeType: "patch" | "router") {
-        // this.str = route;
+        this.str = route;
 
         if (routeType === "router") {
             if (route === "/") this.re = new RegExp("^(?=.*/$)", "i");
@@ -82,7 +82,7 @@ export class CookieHandler {
     private origin: ParameterStore = {};
 
     init(source: PBRequest) {
-        const rawHeader = source.raw().headers.get("cookie");
+        const rawHeader = source.headers.get("cookie");
         if (!rawHeader) return;
 
         const cookies = rawHeader.split("; ").map($ => $.split("="));
@@ -103,7 +103,44 @@ export class CookieHandler {
             return;
         }
 
-        let out = value;
+        this.guts[key] = CookieHandler.addAttributes(value, attributes);
+    }
+
+    unset(key: string) {
+        if (!this.guts[key]) return;
+        this.guts[key] = '"";Expires=Sat, 01 Jan 2000 00:01:00 GMT'
+    }
+
+    stringify(options: {
+        secure?: boolean;
+    } = {}): string | undefined {
+        let equal = true;
+        for (const key in this.guts) {
+            if (this.guts[key] !== this.origin[key]){
+                equal = false;
+                break;
+            }
+        }
+        let secure = options.secure || true;
+        let out = equal ? undefined : JSON.stringify(this.guts);
+        if (out && secure) out += "; Secure";
+        return out;
+    }
+
+    __reset() {
+        this.guts = {};
+        this.origin = {};
+    }
+
+    static strip(cookie: string): string | undefined  {
+        let matches = cookie.match(/^[^;]+/);
+        if (!matches) return;
+        if (matches?.length < 1) return;
+        return matches[0];
+    }
+
+    private static addAttributes(cookie: string, attributes: CookieAttributes): string {
+        let out = cookie;
 
         if (attributes.expires instanceof Date) {
             out += `; Expires=${attributes.expires.toUTCString()}`;
@@ -138,29 +175,7 @@ export class CookieHandler {
 
         if (attributes.httpOnly === true) out += "; HttpOnly";
 
-        this.guts[key] = out;
-    }
-
-    unset(key: string) {
-        if (!this.guts[key]) return;
-        this.guts[key] = '"";Expires=Sat, 01 Jan 2000 00:01:00 GMT'
-    }
-
-    stringify(): string | undefined {
-        // if (isEqual(this.origin, this.guts)) return undefined;
-        let equal = true;
-        for (const key in this.guts) {
-            if (this.guts[key] !== this.origin[key]){
-                equal = false;
-                break;
-            }
-        }
-        return equal ? undefined : JSON.stringify(this.guts);
-    }
-
-    __reset() {
-        this.guts = {};
-        this.origin = {};
+        return out;
     }
 }
 
@@ -176,6 +191,15 @@ export abstract class Patch<Data = void> implements Patchable {
 
     constructor(route: string) {
         this.route = new Route(route, "patch");
+    }
+
+    intercept(req: PBRequest): boolean {
+        return false;
+    }
+
+    __safe_intercept(req: PBRequest): boolean {
+        this.reset();
+        return this.intercept(req);
     }
 
     abstract entry(req: PBRequest): Data | Promise<Data>;
@@ -197,7 +221,7 @@ export abstract class Patch<Data = void> implements Patchable {
     }
 
     parseRouteParams(req: PBRequest) {
-        const urlMatches = req.url.match(this.route.re);
+        const urlMatches = req.PBurl.match(this.route.re);
         if (!urlMatches || urlMatches.length < 2) return;
         for (let i = 0; i < this.route.parameterNames.length; i++) {
             this.routeParameters[this.route.parameterNames[i]] = urlMatches[i + 1];
@@ -221,108 +245,112 @@ export abstract class Patch<Data = void> implements Patchable {
     }
 }
 
-export class StaticPatch extends Patch {
-    readonly response: DefaultResponse;
+export class StaticPatch implements Patchable {
+    readonly route: Route;
+    private readonly response: DefaultResponse;
 
     constructor(options: {
         route: string,
         response: DefaultResponse
     }) {
-        super(options.route);
+        this.route = new Route(options.route, "patch");
         this.response = options.response;
     }
 
-    entry(req: PBRequest) {
-    }
-
-    exit(): Response {
-        return extractResponse(this.response)
+    fetch(_: PBRequest): Promise<Response> {
+        return Promise.resolve(extractResponse(this.response))
     }
 }
 
-export class GlobalRedirect extends Patch {
-    private readonly to: string;
+export class GlobalRedirect implements Patchable{
+    readonly route: Route;
 
-    constructor(route: string, to: string) {
-        super(route);
-        this.to = to;
+    constructor(route: string, private readonly to: string) {
+        this.route = new Route(route, "patch");
     }
 
-    entry(req: PBRequest) {
-    }
-
-    exit(): Response {
-        return Response.redirect(this.to)
+    fetch(req: PBRequest): Promise<Response> {
+        return Promise.resolve(Response.redirect(this.to))
     }
 }
 
-export class LocalRedirect extends Patch {
-    private readonly to: string;
+export class LocalRedirect implements Patchable {
+    readonly route: Route;
     private readonly filter: RegExp;
-    private finalTo = "";
 
-    constructor(route: string, to: string) {
-        super(route);
+    constructor(route: string, private readonly to: string) {
+        this.route = new Route(route, "patch");
         this.filter = new RegExp(route + (route === "/" ? "$" : "/$"));
-        this.to = to;
     }
 
-    entry(req: PBRequest) {
-        this.finalTo = req.raw().url;
-        if (this.finalTo.at(-1) !== "/") this.finalTo += "/";
-        this.finalTo = this.finalTo.replace(this.filter, this.to);
-    }
-
-    exit(): Response {
-        return Response.redirect(this.finalTo);
+    fetch(req: PBRequest): Promise<Response> {
+        let out = req.url;
+        if (out.at(-1) !== "/") out += "/";
+        out = out.replace(this.filter, this.to);
+        return Promise.resolve(Response.redirect(out));
     }
 }
 
 export abstract class Router implements Patchable {
     readonly route: Route;
     abstract readonly patches: Patchable[];
-    protected defaultResponse?: DefaultResponse;
 
     constructor(route: string) {
         this.route = new Route(route, "router");
     }
 
-    private getFinalPatchable(path: string): [Patchable, string] | null {
+    private getFinalPatchable(path: string, req: PBRequest): [Patchable, string] | null {
         let rte = path.replace(this.route.re, "");
         if (rte === "") rte = "/";
 
-        const matchedPatches = this.patches.filter($ => $.route.re.test(rte));
-        if (matchedPatches.length == 0) return null;
+        const matchedPatchables = this.patches.filter($ => $.route.re.test(rte));
+        if (matchedPatchables.length == 0) return null;
 
-        for (const patch of matchedPatches) {
-            if (patch instanceof Router) {
-                const final = patch.getFinalPatchable(rte);
-                if (final) return final;
-                if (patch.defaultResponse)
-                    throw extractResponse(patch.defaultResponse);
+        let out: [Patchable, string] | null = null;
+
+        for (const patchable of matchedPatchables) {
+            if (patchable instanceof Router) {
+                const final = patchable.getFinalPatchable(rte, req);
+                if (final) {
+                    out = final;
+                    break;
+                }
                 continue;
             }
-            return [patch, rte];
+            out = [patchable, rte];
+            break;
         }
 
-        return null;
+        if (out !== null
+            && out[0] instanceof Patch
+            && out[0].__safe_intercept(req))
+            out = null;
+
+        return out;
     }
 
     async fetch(req: PBRequest): Promise<Response> {
         let finalPatchable: [Patchable, string] | null;
         try {
-            finalPatchable = this.getFinalPatchable(req.url)
+            finalPatchable = this.getFinalPatchable(req.PBurl, req)
         } catch (e) {
             if (e instanceof Response) return e;
             else throw e;
         }
 
-        if (!finalPatchable) {
-            if (this.defaultResponse) return extractResponse(this.defaultResponse);
-            throw new RouteNotFound();
-        }
+        if (!finalPatchable) throw new RouteNotFound();
 
-        return finalPatchable[0].fetch(new PBRequest(req, finalPatchable[1]));
+        return finalPatchable[0].fetch(PBRequest.ify(req, finalPatchable[1]));
+    }
+}
+
+export class QuickRouter extends Router {
+    readonly patches: Patchable[];
+
+    constructor(route: string, patches: Patchable[]) {
+        super(route);
+
+        this.patches = patches;
     }
 }
 
@@ -330,19 +358,15 @@ export class StaticAssetRouter extends Router {
     readonly patches: Patchable[] = [];
 
     constructor(route: string, directory: string, options: {
-        defaultResponse?: DefaultResponse,
         customPatches?: Patchable[]
     } = {}) {
         super(route);
-        this.defaultResponse = options.defaultResponse;
 
         const dirContents = fs.readdirSync(directory, {withFileTypes: true});
         for (const item of dirContents) {
             if (item.isDirectory()) {
                 this.patches.push(
-                    new StaticAssetRouter("/" + item.name, path.join(directory, item.name), {
-                        defaultResponse: this.defaultResponse
-                    }));
+                    new StaticAssetRouter("/" + item.name, path.join(directory, item.name)));
                 continue;
             }
 
