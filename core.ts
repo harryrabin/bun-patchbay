@@ -67,7 +67,7 @@ export interface Patchable {
 }
 
 export interface CookieAttributes {
-    expires?: Date | string;
+    expires?: Date | number | string;
     max_age?: number;
     domain?: string;
     path?: string;
@@ -143,6 +143,8 @@ export class CookieHandler {
 
         if (attributes.expires instanceof Date) {
             out += `; Expires=${attributes.expires.toUTCString()}`;
+        } else if (typeof attributes.expires == "number") {
+            out += `; Expires=${new Date(attributes.expires).toUTCString()}`
         } else if (typeof attributes.expires === "string") {
             out += `; Expires=${attributes.expires}`;
         }
