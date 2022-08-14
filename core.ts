@@ -304,48 +304,32 @@ export abstract class Router implements Patchable {
         this.route = new Route(route, "router");
     }
 
-    private getFinalPatchable(path: string, req: PBRequest): [Patchable, string] | null {
-        let rte = path.replace(this.route.re, "");
+    fetch(req: PBRequest): Promise<Response> {
+        let rte = req.PBurl.replace(this.route.re, "");
         if (rte === "") rte = "/";
 
-        const matchedPatchables = this.patches.filter($ => $.route.re.test(rte));
-        if (matchedPatchables.length == 0) return null;
-
-        let out: [Patchable, string] | null = null;
+        const matchedPatchables = this.patches.filter(p => p.route.re.test(rte));
+        if (matchedPatchables.length == 0) throw new RouteNotFound();
 
         for (const patchable of matchedPatchables) {
             if (patchable instanceof Router) {
-                const final = patchable.getFinalPatchable(rte, req);
-                if (final) {
-                    out = final;
-                    break;
+                try {
+                    return patchable.fetch(PBRequest.ify(req, rte));
+                }
+                catch (e) {
+                    if (!(e instanceof RouteNotFound)) throw e;
                 }
                 continue;
             }
-            out = [patchable, rte];
-            break;
+            if (patchable instanceof Patch
+            && patchable.__safe_intercept(req)) {
+                continue;
+            }
+
+            return patchable.fetch(req);
         }
 
-        if (out !== null
-            && out[0] instanceof Patch
-            && out[0].__safe_intercept(req))
-            out = null;
-
-        return out;
-    }
-
-    async fetch(req: PBRequest): Promise<Response> {
-        let finalPatchable: [Patchable, string] | null;
-        try {
-            finalPatchable = this.getFinalPatchable(req.PBurl, req)
-        } catch (e) {
-            if (e instanceof Response) return e;
-            else throw e;
-        }
-
-        if (!finalPatchable) throw new RouteNotFound();
-
-        return finalPatchable[0].fetch(PBRequest.ify(req, finalPatchable[1]));
+        throw new RouteNotFound();
     }
 }
 
@@ -399,5 +383,7 @@ export class StaticAssetRouter extends Router {
 }
 
 export class RouteNotFound extends Error {
-
+    constructor() {
+        super("PatchBay: route not found");
+    }
 }
