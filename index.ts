@@ -28,7 +28,9 @@ export interface MainBay {
 
 export interface PBAppOptions {
     noHandlebars?: boolean;
+
     handlebarsSetup?(handlebars: typeof Handlebars): void;
+
     handlebarsOptions?: CompileOptions;
     viewDirectory?: string;
     skipGlobal?: boolean;
@@ -68,21 +70,22 @@ export class PBApp {
         const server = Bun.serve({
             ...options,
             port: _this.mainBay.port,
-            fetch(req: Request): Promise<Response> {
+            async fetch(req): Promise<Response> {
                 let overrideURL = req.url;
                 if (overrideURL.at(-1) !== '/') overrideURL += '/';
-                return _this.mainRouter.fetch(PBRequest.ify(req, overrideURL));
-            },
-            error(err) {
-                if (err instanceof RouteNotFound) {
-                    return _this.mainBay.responseNotFound ?
+                try {
+                    return _this.mainRouter.fetch(PBRequest.ify(req, overrideURL));
+                } catch (e) {
+                    if (e instanceof RouteNotFound) return _this.mainBay.responseNotFound ?
                         extractResponse(_this.mainBay.responseNotFound)
-                        : new Response("404: not found", {status:404});
+                        : new Response("404: not found", {status: 404});
+                    throw e;
                 }
-
+            },
+            error: process.env.PB_ENV !== "prod" ? undefined : (err) => {
                 return _this.mainBay.responseError ?
                     extractResponse(_this.mainBay.responseError)
-                    : new Response("500: server error", {status:500});
+                    : new Response("500: server error", {status: 500});
             }
         });
         console.log(`Server started on port ${server.port}`);
