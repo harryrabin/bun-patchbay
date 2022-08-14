@@ -309,7 +309,6 @@ export abstract class Router implements Patchable {
         if (rte === "") rte = "/";
 
         const matchedPatchables = this.patches.filter(p => p.route.re.test(rte));
-        if (matchedPatchables.length == 0) throw new RouteNotFound();
 
         for (const patchable of matchedPatchables) {
             if (patchable instanceof Router) {
