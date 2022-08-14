@@ -107,23 +107,30 @@ export class CookieHandler {
 
     unset(key: string) {
         if (!this.guts[key]) return;
-        this.guts[key] = '"";Expires=Sat, 01 Jan 2000 00:01:00 GMT'
+        this.guts[key] = 'undefined; Expires=Sat, 01 Jan 2000 00:00:00 GMT'
     }
 
     stringify(options: {
         secure?: boolean;
     } = {}): string | undefined {
-        let equal = true;
+        let out: ParameterStore | undefined = undefined;
+
         for (const key in this.guts) {
             if (this.guts[key] !== this.origin[key]){
-                equal = false;
-                break;
+                out = {};
             }
         }
-        let secure = options.secure || true;
-        let out = equal ? undefined : JSON.stringify(this.guts);
-        if (out && secure) out += "; Secure";
-        return out;
+        if(!out) return undefined;
+
+        for (const key in this.guts) {
+            if (this.guts[key] !== this.origin[key]){
+                out[key] = this.guts[key];
+            }
+        }
+        const secure = options.secure !== undefined ? options.secure : true;
+        let outString = JSON.stringify(out);
+        if (secure) outString += "; Secure";
+        return outString;
     }
 
     __reset() {
@@ -313,21 +320,17 @@ export abstract class Router implements Patchable {
         const matchedPatchables = this.patches.filter(p => p.route.re.test(rte));
 
         for (const patchable of matchedPatchables) {
-            if (patchable instanceof Router) {
-                try {
-                    return patchable.fetch(PBRequest.ify(req, rte));
-                }
-                catch (e) {
-                    if (!(e instanceof RouteNotFound)) throw e;
-                }
-                continue;
-            }
             if (patchable instanceof Patch
             && patchable.__safe_intercept(req)) {
                 continue;
             }
 
-            return patchable.fetch(req);
+            try {
+                return patchable.fetch(PBRequest.ify(req, rte));
+            }
+            catch (e) {
+                if (!(e instanceof RouteNotFound)) throw e;
+            }
         }
 
         throw new RouteNotFound();
