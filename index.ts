@@ -3,8 +3,11 @@
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>. */
 
+import {
+    Patchable, QuickRouter, RouteNotFound, Router,
+    PBRequest, DefaultResponse, extractResponse
+} from "./core";
 import {ServeOptions, Server} from "bun";
-import {DefaultResponse, extractResponse, Patchable, PBRequest, QuickRouter, RouteNotFound, Router} from "./core";
 import * as Handlebars from "handlebars";
 import * as fs from "fs";
 import * as path from "path";
@@ -61,6 +64,18 @@ export class PBApp {
         }
     }
 
+    async __fetch(req: Request): Promise<Response> {
+        let overrideURL = req.url;
+        if (overrideURL.at(-1) !== '/') overrideURL += '/';
+        try {
+            return this.mainRouter.fetch(PBRequest.ify(req, overrideURL));
+        } catch (e) {
+            if (e instanceof RouteNotFound) return this.mainBay.responseNotFound ?
+                extractResponse(this.mainBay.responseNotFound)
+                : new Response("404: not found", {status: 404});
+            throw e;
+        }
+    }
 
     serve(options: PBServeOptions = {}): Server {
         const _this = this;
@@ -68,21 +83,11 @@ export class PBApp {
         const server = Bun.serve({
             ...options,
             port: _this.mainBay.port,
-            fetch(req: Request): Promise<Response> {
-                let overrideURL = req.url;
-                if (overrideURL.at(-1) !== '/') overrideURL += '/';
-                return _this.mainRouter.fetch(PBRequest.ify(req, overrideURL));
-            },
-            error(err) {
-                if (err instanceof RouteNotFound) {
-                    return _this.mainBay.responseNotFound ?
-                        extractResponse(_this.mainBay.responseNotFound)
-                        : new Response("404: not found", {status:404});
-                }
-
+            fetch: this.__fetch.bind(this),
+            error: process.env.PB_ENV !== "prod" ? undefined : (err) => {
                 return _this.mainBay.responseError ?
                     extractResponse(_this.mainBay.responseError)
-                    : new Response("500: server error", {status:500});
+                    : new Response("500: server error", {status: 500});
             }
         });
         console.log(`Server started on port ${server.port}`);

@@ -17,16 +17,15 @@ export function extractResponse(res: DefaultResponse): Response {
 }
 
 export class PBRequest extends Request {
-    // @ts-ignore
-    PBurl: string;
+    readonly PBurl: string = this.url;
 
     static ify(req: Request, url?: string): PBRequest {
         const base = req.clone();
         Object.defineProperty(base, "PBurl", {
-            value: url || req.url
-        })
-        // @ts-ignore
-        return base;
+            value: url || req.url,
+            writable: false
+        });
+        return base as PBRequest;
     }
 }
 
@@ -68,7 +67,7 @@ export interface Patchable {
 }
 
 export interface CookieAttributes {
-    expires?: Date | string;
+    expires?: Date | number | string;
     max_age?: number;
     domain?: string;
     path?: string;
@@ -81,7 +80,7 @@ export class CookieHandler {
     private guts: ParameterStore = {};
     private origin: ParameterStore = {};
 
-    init(source: PBRequest) {
+    init(source: Request) {
         const rawHeader = source.headers.get("cookie");
         if (!rawHeader) return;
 
@@ -108,23 +107,30 @@ export class CookieHandler {
 
     unset(key: string) {
         if (!this.guts[key]) return;
-        this.guts[key] = '"";Expires=Sat, 01 Jan 2000 00:01:00 GMT'
+        this.guts[key] = 'undefined; Expires=Sat, 01 Jan 2000 00:00:00 GMT'
     }
 
     stringify(options: {
         secure?: boolean;
     } = {}): string | undefined {
-        let equal = true;
+        let out: ParameterStore | undefined = undefined;
+
         for (const key in this.guts) {
             if (this.guts[key] !== this.origin[key]){
-                equal = false;
-                break;
+                out = {};
             }
         }
-        let secure = options.secure || true;
-        let out = equal ? undefined : JSON.stringify(this.guts);
-        if (out && secure) out += "; Secure";
-        return out;
+        if(!out) return undefined;
+
+        for (const key in this.guts) {
+            if (this.guts[key] !== this.origin[key]){
+                out[key] = this.guts[key];
+            }
+        }
+        const secure = options.secure !== undefined ? options.secure : true;
+        let outString = JSON.stringify(out);
+        if (secure) outString += "; Secure";
+        return outString;
     }
 
     __reset() {
@@ -144,6 +150,8 @@ export class CookieHandler {
 
         if (attributes.expires instanceof Date) {
             out += `; Expires=${attributes.expires.toUTCString()}`;
+        } else if (typeof attributes.expires == "number") {
+            out += `; Expires=${new Date(attributes.expires).toUTCString()}`
         } else if (typeof attributes.expires === "string") {
             out += `; Expires=${attributes.expires}`;
         }
@@ -185,6 +193,8 @@ export abstract class Patch<Data = void> implements Patchable {
     routeParameters: ParameterStore = {};
     queryStringParameters: ParameterStore = {};
 
+    // @ts-ignore
+    readonly __pbRequest: PBRequest = null;
     readonly cookies = new CookieHandler();
 
     private sendMutex = new Mutex();
@@ -193,22 +203,26 @@ export abstract class Patch<Data = void> implements Patchable {
         this.route = new Route(route, "patch");
     }
 
-    intercept(req: PBRequest): boolean {
+    intercept(req: Request): boolean {
         return false;
     }
 
-    __safe_intercept(req: PBRequest): boolean {
+    __safe_intercept(req: Request): boolean {
         this.reset();
         return this.intercept(req);
     }
 
-    abstract entry(req: PBRequest): Data | Promise<Data>;
+    abstract entry(req: Request): Data | Promise<Data>;
 
     abstract exit(data: Data): Response | Promise<Response>;
 
     fetch(req: PBRequest): Promise<Response> {
         return this.sendMutex.runExclusive(async () => {
             this.reset();
+            Object.defineProperty(this, "__pbRequest", {
+                value: req,
+                writable: false
+            });
             let data: Data;
             try {
                 data = await this.entry(req);
@@ -220,8 +234,8 @@ export abstract class Patch<Data = void> implements Patchable {
         });
     }
 
-    parseRouteParams(req: PBRequest) {
-        const urlMatches = req.PBurl.match(this.route.re);
+    parseRouteParams() {
+        const urlMatches = this.__pbRequest.PBurl.match(this.route.re);
         if (!urlMatches || urlMatches.length < 2) return;
         for (let i = 0; i < this.route.parameterNames.length; i++) {
             this.routeParameters[this.route.parameterNames[i]] = urlMatches[i + 1];
@@ -299,48 +313,27 @@ export abstract class Router implements Patchable {
         this.route = new Route(route, "router");
     }
 
-    private getFinalPatchable(path: string, req: PBRequest): [Patchable, string] | null {
-        let rte = path.replace(this.route.re, "");
+    fetch(req: PBRequest): Promise<Response> {
+        let rte = req.PBurl.replace(this.route.re, "");
         if (rte === "") rte = "/";
 
-        const matchedPatchables = this.patches.filter($ => $.route.re.test(rte));
-        if (matchedPatchables.length == 0) return null;
-
-        let out: [Patchable, string] | null = null;
+        const matchedPatchables = this.patches.filter(p => p.route.re.test(rte));
 
         for (const patchable of matchedPatchables) {
-            if (patchable instanceof Router) {
-                const final = patchable.getFinalPatchable(rte, req);
-                if (final) {
-                    out = final;
-                    break;
-                }
+            if (patchable instanceof Patch
+            && patchable.__safe_intercept(req)) {
                 continue;
             }
-            out = [patchable, rte];
-            break;
+
+            try {
+                return patchable.fetch(PBRequest.ify(req, rte));
+            }
+            catch (e) {
+                if (!(e instanceof RouteNotFound)) throw e;
+            }
         }
 
-        if (out !== null
-            && out[0] instanceof Patch
-            && out[0].__safe_intercept(req))
-            out = null;
-
-        return out;
-    }
-
-    async fetch(req: PBRequest): Promise<Response> {
-        let finalPatchable: [Patchable, string] | null;
-        try {
-            finalPatchable = this.getFinalPatchable(req.PBurl, req)
-        } catch (e) {
-            if (e instanceof Response) return e;
-            else throw e;
-        }
-
-        if (!finalPatchable) throw new RouteNotFound();
-
-        return finalPatchable[0].fetch(PBRequest.ify(req, finalPatchable[1]));
+        throw new RouteNotFound();
     }
 }
 
@@ -394,5 +387,7 @@ export class StaticAssetRouter extends Router {
 }
 
 export class RouteNotFound extends Error {
-
+    constructor() {
+        super("PatchBay: route not found");
+    }
 }

@@ -1,4 +1,5 @@
 import * as PB from "..";
+import testBay from "./test-bay";
 import {compile as hbCompile} from "handlebars";
 
 class Test {
@@ -58,11 +59,11 @@ const tests: Test[] = [
 
         ch.set("cookieThree", "three");
 
-        if (ch.stringify() !== '{"cookieOne":"one","cookieTwo":"two","cookieThree":"three"}; Secure')
+        if (ch.stringify() !== '{"cookieThree":"three"}; Secure')
             throw "returned json from stringify() was incorrect"
 
         ch.set("cookieFour", "four", {
-            expires: new Date(Date.UTC(2000, 0, 1, 0, 0)),
+            expires: Date.UTC(2000, 0, 1, 0, 0),
             max_age: 3000,
             domain: "http://localhost:3000",
             path: "/",
@@ -77,6 +78,10 @@ const tests: Test[] = [
 
         if (PB.CookieHandler.strip(cookieFour) !== "four")
             throw "static strip() did not strip the cookie correctly";
+
+        ch.unset("cookieOne");
+        if (ch.get("cookieOne") !== "undefined; Expires=Sat, 01 Jan 2000 00:00:00 GMT")
+            throw "unset() did not set the cookie to expire correctly"
 
         return true;
     }),
@@ -112,9 +117,39 @@ const tests: Test[] = [
             throw "TemplateResponse did not use the template correctly";
 
         return true;
-    })
+    }),
 
+    new Test("request/response", async () => {
+        const app = new PB.PBApp(testBay, {
+            noHandlebars: true,
+            skipGlobal: true,
+        });
+
+        const adminHomeRequest = new Request("https://example.com/admin/home")
+        const adminHomeResponse = await app.__fetch(adminHomeRequest);
+
+        if (await adminHomeResponse.text() !== "admin home")
+            throw "/admin/home response was incorrect";
+
+        const adminLoginRequest = new Request("https://example.com/admin/login")
+        const adminLoginResponse = await app.__fetch(adminLoginRequest);
+
+        if (await adminLoginResponse.text() !== "admin login")
+            throw "/admin/login response was incorrect";
+
+        const catchallRequest = new Request("https://example.com/miscellaneous");
+        const catchallResponse = await app.__fetch(catchallRequest);
+
+        const t = await catchallResponse.text();
+        if (t !== "miscellaneous")
+            throw "/{catchall} response was incorrect";
+
+        return true;
+    })
 ]
 
-await Promise.all(tests.map(t => t.run()));
+
+for (const test of tests) {
+    await test.run()
+}
 process.exit(0);
