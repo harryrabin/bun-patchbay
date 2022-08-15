@@ -129,15 +129,20 @@ const tests: Test[] = [
             skipGlobal: true,
         });
 
-        const adminHomeRequest = new Request("https://example.com/admin/home")
+        const adminHomeRequest = new Request("https://example.com/admin/controls/home")
         const adminHomeResponse = await app.__fetch(adminHomeRequest);
+        if (await adminHomeResponse.text() !== "403: forbidden")
+            throw "/admin/controls/home response was incorrect\n" +
+            "(entry modifier is not working)";
 
-        if (await adminHomeResponse.text() !== "admin home")
-            throw "/admin/home response was incorrect";
+        const adminNotFoundRequest = new Request("https://example.com/admin/controls/null");
+        const adminNotFoundResponse = await app.__fetch(adminNotFoundRequest);
+        if (await adminNotFoundResponse.text() !== "404: not found")
+            throw "/admin/controls/null response was incorrect\n" +
+            "(router is not checking for route matches before running entry modifier)";
 
         const adminLoginRequest = new Request("https://example.com/admin/login")
         const adminLoginResponse = await app.__fetch(adminLoginRequest);
-
         if (await adminLoginResponse.text() !== "admin login")
             throw "/admin/login response was incorrect";
 
@@ -151,7 +156,6 @@ const tests: Test[] = [
         return true;
     })
 ]
-
 
 for (const test of tests) {
     await test.run()
