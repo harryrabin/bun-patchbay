@@ -38,8 +38,12 @@ const tests: Test[] = [
         if (r2.re.toString() !== "/^\\/patchnamehere(?:\\?(.+))?\\/$/i")
             throw "patch route w/ query string was incorrect";
 
-        const r3 = new PB.Route("/routernamehere", "router");
-        if (r3.re.toString() !== "/^\\/routernamehere(?=.*\\/$)/i")
+        const r3 = new PB.Route("/{username}/{pagetype}", "patch");
+        if (r3.re.toString() !== "/^\\/([^?/]+)\\/([^?/]+)\\/$/i")
+            throw "patch route w/ capture groups was incorrect";
+
+        const r4 = new PB.Route("/routernamehere", "router");
+        if (r4.re.toString() !== "/^\\/routernamehere(?=.*\\/$)/i")
             throw "router route was incorrect";
 
         return true;

@@ -54,7 +54,7 @@ export class Route {
 
             const formattedRoute = route
                 .replace("{queryString}", "(?:\\?(.+))?")
-                .replace(Route.paramRegExp, "([^?]+)");
+                .replace(Route.paramRegExp, "([^?/]+)");
             this.re = new RegExp("^" + formattedRoute + "/$", "i");
         }
     }
@@ -313,7 +313,7 @@ export abstract class Router implements Patchable {
         this.route = new Route(route, "router");
     }
 
-    fetch(req: PBRequest): Promise<Response> {
+    async fetch(req: PBRequest): Promise<Response> {
         let rte = req.PBurl.replace(this.route.re, "");
         if (rte === "") rte = "/";
 
@@ -326,7 +326,7 @@ export abstract class Router implements Patchable {
             }
 
             try {
-                return patchable.fetch(PBRequest.ify(req, rte));
+                return await patchable.fetch(PBRequest.ify(req, rte));
             }
             catch (e) {
                 if (!(e instanceof RouteNotFound)) throw e;
