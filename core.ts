@@ -311,6 +311,9 @@ export abstract class Router implements Patchable {
     readonly route: Route;
     abstract readonly patches: Patchable[];
 
+    abstract readonly entryModifiers: Modifiers.Entry[];
+    abstract readonly exitModifiers: Modifiers.Exit[];
+
     constructor(route: string) {
         this.route = new Route(route, "router");
     }
@@ -319,38 +322,59 @@ export abstract class Router implements Patchable {
         let rte = req.PBurl.replace(this.route.re, "");
         if (rte === "") rte = "/";
 
-        const matchedPatchables = this.patches.filter(p => p.route.re.test(rte));
+        let modifiedReq: Request = req;
+        for (const mod of this.entryModifiers) {
+            modifiedReq = await mod.fn(modifiedReq);
+        }
 
+        let res: Response | undefined;
+
+        const matchedPatchables = this.patches.filter(p => p.route.re.test(rte));
         for (const patchable of matchedPatchables) {
             if (patchable instanceof Patch
             && await patchable.__safe_intercept(req)) {
                 continue;
             }
-
             try {
-                return await patchable.fetch(PBRequest.ify(req, rte));
-            }
-            catch (e) {
+                res = await patchable.fetch(PBRequest.ify(modifiedReq, rte));
+                break;
+            } catch (e) {
                 if (!(e instanceof RouteNotFound)) throw e;
             }
         }
+        if (!res) throw new RouteNotFound();
 
-        throw new RouteNotFound();
+        for (const mod of this.exitModifiers) {
+            res = await mod.fn(res);
+        }
+        return res;
     }
 }
 
 export class QuickRouter extends Router {
     readonly patches: Patchable[];
 
-    constructor(route: string, patches: Patchable[]) {
+    readonly entryModifiers: Modifiers.Entry[];
+    readonly exitModifiers: Modifiers.Exit[];
+
+    constructor(route: string, patches: Patchable[], options: {
+        entryModifiers?: Modifiers.Entry[];
+        exitModifiers?: Modifiers.Exit[];
+    } = {} = {}) {
         super(route);
 
         this.patches = patches;
+
+        this.entryModifiers = options.entryModifiers || [];
+        this.exitModifiers = options.exitModifiers || [];
     }
 }
 
 export class StaticAssetRouter extends Router {
     readonly patches: Patchable[] = [];
+
+    readonly entryModifiers = [];
+    readonly exitModifiers = [];
 
     constructor(route: string, directory: string, options: {
         customPatches?: Patchable[]
@@ -391,5 +415,17 @@ export class StaticAssetRouter extends Router {
 export class RouteNotFound extends Error {
     constructor() {
         super("PatchBay: route not found");
+    }
+}
+
+export namespace Modifiers {
+    export abstract class Entry {
+        readonly cookies = new CookieHandler();
+        // TODO: add session handler here
+        abstract fn(req: Request): Request | Promise<Request>;
+    }
+
+    export abstract class Exit {
+        abstract fn(res: Response): Response | Promise<Response>
     }
 }
