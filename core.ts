@@ -203,13 +203,15 @@ export abstract class Patch<Data = void> implements Patchable {
         this.route = new Route(route, "patch");
     }
 
-    intercept(req: Request): boolean {
+    intercept(req: Request): boolean | Promise<boolean> {
         return false;
     }
 
-    __safe_intercept(req: Request): boolean {
-        this.reset();
-        return this.intercept(req);
+    __safe_intercept(req: Request): Promise<boolean> {
+        return this.sendMutex.runExclusive(() => {
+            this.reset();
+            return this.intercept(req)
+        });
     }
 
     abstract entry(req: Request): Data | Promise<Data>;
@@ -321,7 +323,7 @@ export abstract class Router implements Patchable {
 
         for (const patchable of matchedPatchables) {
             if (patchable instanceof Patch
-            && patchable.__safe_intercept(req)) {
+            && await patchable.__safe_intercept(req)) {
                 continue;
             }
 
