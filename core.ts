@@ -360,7 +360,6 @@ export abstract class Router implements Patchable {
 
 export class QuickRouter extends Router {
     readonly patches: Patchable[];
-
     readonly entryModifiers: Modifiers.Entry[];
     readonly exitModifiers: Modifiers.Exit[];
 
@@ -380,13 +379,18 @@ export class QuickRouter extends Router {
 export class StaticAssetRouter extends Router {
     readonly patches: Patchable[] = [];
 
-    readonly entryModifiers = [];
-    readonly exitModifiers = [];
+    readonly entryModifiers;
+    readonly exitModifiers;
 
     constructor(route: string, directory: string, options: {
         customPatches?: Patchable[]
+        entryModifiers?: Modifiers.Entry[];
+        exitModifiers?: Modifiers.Exit[];
     } = {}) {
         super(route);
+
+        this.entryModifiers = options.entryModifiers || [];
+        this.exitModifiers = options.exitModifiers || [];
 
         const dirContents = fs.readdirSync(directory, {withFileTypes: true});
         for (const item of dirContents) {
