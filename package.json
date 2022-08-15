@@ -14,7 +14,7 @@
   "repository": "github:harryrabin/bun-patchbay",
   "license": "GPL-3.0-only",
   "scripts": {
-    "test": "bun ./test/test.ts"
+    "test": "export PB_ENV=prod; bun ./test/test.ts"
   },
   "dependencies": {
     "@types/deep-extend": "^0.4.32",
