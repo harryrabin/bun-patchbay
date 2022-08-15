@@ -67,14 +67,16 @@ export class PBApp {
     async __fetch(req: Request): Promise<Response> {
         let overrideURL = req.url;
         if (overrideURL.at(-1) !== '/') overrideURL += '/';
+        let res: Response;
         try {
-            return this.mainRouter.fetch(PBRequest.ify(req, overrideURL));
+            res = await this.mainRouter.fetch(PBRequest.ify(req, overrideURL));
         } catch (e) {
             if (e instanceof RouteNotFound) return this.mainBay.responseNotFound ?
                 extractResponse(this.mainBay.responseNotFound)
                 : new Response("404: not found", {status: 404});
             throw e;
         }
+        return res;
     }
 
     serve(options: PBServeOptions = {}): Server {

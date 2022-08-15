@@ -322,14 +322,21 @@ export abstract class Router implements Patchable {
         let rte = req.PBurl.replace(this.route.re, "");
         if (rte === "") rte = "/";
 
+        const matchedPatchables = this.patches.filter(p => p.route.re.test(rte));
+        if (matchedPatchables.length === 0) throw new RouteNotFound();
+
         let modifiedReq: Request = req;
         for (const mod of this.entryModifiers) {
-            modifiedReq = await mod.fn(modifiedReq);
+            try {
+                modifiedReq = await mod.fn(modifiedReq);
+            } catch (e) {
+                if (e instanceof Response) return e;
+                throw e;
+            }
         }
 
         let res: Response | undefined;
 
-        const matchedPatchables = this.patches.filter(p => p.route.re.test(rte));
         for (const patchable of matchedPatchables) {
             if (patchable instanceof Patch
             && await patchable.__safe_intercept(req)) {
@@ -421,7 +428,7 @@ export class RouteNotFound extends Error {
 export namespace Modifiers {
     export abstract class Entry {
         readonly cookies = new CookieHandler();
-        // TODO: add session handler here
+        // add session handler here
         abstract fn(req: Request): Request | Promise<Request>;
     }
 
