@@ -339,9 +339,7 @@ export abstract class Router implements Patchable {
 
         for (const patchable of matchedPatchables) {
             if (patchable instanceof Patch
-            && await patchable.__safe_intercept(req)) {
-                continue;
-            }
+            && await patchable.__safe_intercept(req)) continue;
             try {
                 res = await patchable.fetch(PBRequest.ify(modifiedReq, rte));
                 break;
@@ -366,7 +364,7 @@ export class QuickRouter extends Router {
     constructor(route: string, patches: Patchable[], options: {
         entryModifiers?: Modifiers.Entry[];
         exitModifiers?: Modifiers.Exit[];
-    } = {} = {}) {
+    } = {}) {
         super(route);
 
         this.patches = patches;
