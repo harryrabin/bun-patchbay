@@ -5,12 +5,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>. */
 
 import {
     Patchable, QuickRouter, RouteNotFound, Router,
-    PBRequest, DefaultResponse, extractResponse
+    PBRequest, DefaultResponse, extractResponse, CookieHandler, ParameterStore
 } from "./core";
 import {ServeOptions, Server} from "bun";
 import * as Handlebars from "handlebars";
 import * as fs from "fs";
 import * as path from "path";
+import {v4 as uuid} from "uuid";
+import {RedisClient} from "bun-redis-bindings";
 
 export * from './core';
 export * as PBUtils from './utilities';
@@ -30,9 +32,12 @@ export interface MainBay {
 }
 
 export interface PBAppOptions {
+    sessionOptions?: SessionOptions;
+
     noHandlebars?: boolean;
     handlebarsSetup?(handlebars: typeof Handlebars): void;
-    handlebarsOptions?: CompileOptions;
+    handlebarsCompileOptions?: CompileOptions;
+
     viewDirectory?: string;
     skipGlobal?: boolean;
 }
@@ -42,6 +47,7 @@ export class PBApp {
     readonly port: number;
     readonly baseURL: string;
     readonly templates: Record<string, HandlebarsTemplateDelegate> = {};
+    readonly session: SessionHandler;
 
     private readonly mainBay: MainBay;
 
@@ -50,6 +56,7 @@ export class PBApp {
         this.port = mainBay.port;
         this.baseURL = mainBay.baseURL;
 
+        this.session = new SessionHandler(options.sessionOptions);
         this.mainRouter = new QuickRouter(mainBay.baseURL, mainBay.patches);
 
         if (!options.skipGlobal) Object.defineProperty(global, "PatchBay", {
@@ -60,7 +67,7 @@ export class PBApp {
         if (!options.noHandlebars) {
             const viewDir = options.viewDirectory || "./views";
             if (options.handlebarsSetup) options.handlebarsSetup(Handlebars);
-            this.loadTemplates(viewDir, {hbOptions: options.handlebarsOptions});
+            this.loadTemplates(viewDir, {hbOptions: options.handlebarsCompileOptions});
         }
     }
 
@@ -120,5 +127,50 @@ export class PBApp {
                 writable: false
             });
         }
+    }
+}
+
+export interface SessionOptions {
+    url?: string;
+    init?: boolean;
+}
+
+export class SessionHandler {
+    // @ts-ignore
+    private redis: RedisClient = null;
+    private readonly redisURL: string;
+
+    constructor(options: SessionOptions = {}) {
+        this.redisURL = options.url || "";
+        if (options.init !== false) this.connect();
+    }
+
+    connect() {
+        if (this.redis) {
+            this.redis.reconnect();
+            return;
+        }
+        this.redis = new RedisClient(this.redisURL);
+    }
+
+    getOrCreate(req: Request, initField: string, initValue: string): [ParameterStore, string] {
+        let id: string = CookieHandler.parse(req)?.["__PBSession"] || uuid();
+
+        // the switch fallthrough is intentional!!
+        const redisType = this.redis.cmdTYPE(id);
+        switch (redisType) {
+            case "none":
+                this.redis.cmdHSET(id, initField, initValue);
+            case "hash":
+                return [this.redis.cmdHGETALL(id) as ParameterStore, id];
+            default:
+                throw new SessionError(`PatchBay: session key exists, but under wrong type {${redisType}}`)
+        }
+    }
+}
+
+export class SessionError extends Error {
+    constructor(msg: string) {
+        super(msg);
     }
 }

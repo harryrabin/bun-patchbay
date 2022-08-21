@@ -80,15 +80,26 @@ export class CookieHandler {
     private guts: ParameterStore = {};
     private origin: ParameterStore = {};
 
-    init(source: Request) {
+    static parse(source: Request): ParameterStore | null {
+        let out: ParameterStore = {};
+
         const rawHeader = source.headers.get("cookie");
-        if (!rawHeader) return;
+        if (!rawHeader) return null;
 
         const cookies = rawHeader.split("; ").map($ => $.split("="));
         for (const cookie of cookies) {
             if (cookie.length !== 2) continue;
-            this.origin[cookie[0]] = cookie[1];
+            out[cookie[0]] = cookie[1];
         }
+
+        return out;
+    }
+
+    init(source: Request) {
+        const origin = CookieHandler.parse(source);
+        if (!origin) return;
+
+        this.origin = origin;
         this.guts = {...this.origin};
     }
 
