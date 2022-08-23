@@ -5,14 +5,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>. */
 
 import {
     Patchable, QuickRouter, RouteNotFound, Router,
-    PBRequest, DefaultResponse, extractResponse, CookieHandler, ParameterStore
+    PBRequest, DefaultResponse, extractResponse,
+    SessionHandler, SessionHandlerOptions
 } from "./core";
 import {ServeOptions, Server} from "bun";
 import * as Handlebars from "handlebars";
 import * as fs from "fs";
 import * as path from "path";
-import {v4 as uuid} from "uuid";
-import {RedisClient} from "bun-redis-bindings";
 
 export * from './core';
 export * as PBUtils from './utilities';
@@ -32,10 +31,12 @@ export interface MainBay {
 }
 
 export interface PBAppOptions {
-    sessionOptions?: SessionOptions;
+    sessionOptions?: SessionHandlerOptions;
 
     noHandlebars?: boolean;
+
     handlebarsSetup?(handlebars: typeof Handlebars): void;
+
     handlebarsCompileOptions?: CompileOptions;
 
     viewDirectory?: string;
@@ -75,7 +76,10 @@ export class PBApp {
         let overrideURL = req.url;
         if (overrideURL.at(-1) !== '/') overrideURL += '/';
         try {
-            return await this.mainRouter.fetch(PBRequest.ify(req, overrideURL));
+            return await this.mainRouter.fetch(PBRequest.ify(req, {
+                url: overrideURL,
+                app: this
+            }));
         } catch (e) {
             if (e instanceof RouteNotFound) return this.mainBay.responseNotFound ?
                 extractResponse(this.mainBay.responseNotFound)
@@ -127,50 +131,5 @@ export class PBApp {
                 writable: false
             });
         }
-    }
-}
-
-export interface SessionOptions {
-    url?: string;
-    init?: boolean;
-}
-
-export class SessionHandler {
-    // @ts-ignore
-    private redis: RedisClient = null;
-    private readonly redisURL: string;
-
-    constructor(options: SessionOptions = {}) {
-        this.redisURL = options.url || "";
-        if (options.init !== false) this.connect();
-    }
-
-    connect() {
-        if (this.redis) {
-            this.redis.reconnect();
-            return;
-        }
-        this.redis = new RedisClient(this.redisURL);
-    }
-
-    getOrCreate(req: Request, initField: string, initValue: string): [ParameterStore, string] {
-        let id: string = CookieHandler.parse(req)?.["__PBSession"] || uuid();
-
-        // the switch fallthrough is intentional!!
-        const redisType = this.redis.cmdTYPE(id);
-        switch (redisType) {
-            case "none":
-                this.redis.cmdHSET(id, initField, initValue);
-            case "hash":
-                return [this.redis.cmdHGETALL(id) as ParameterStore, id];
-            default:
-                throw new SessionError(`PatchBay: session key exists, but under wrong type {${redisType}}`)
-        }
-    }
-}
-
-export class SessionError extends Error {
-    constructor(msg: string) {
-        super(msg);
     }
 }

@@ -7,6 +7,9 @@ import * as fs from "fs";
 import * as path from "path";
 import {Mutex} from "async-mutex";
 import mimeTypes from "./mime-types";
+import {RedisClient} from "bun-redis-bindings";
+import {v4 as uuid} from "uuid";
+import {PBApp} from "./index";
 
 export type ParameterStore = Record<string, string | undefined>
 
@@ -16,13 +19,25 @@ export function extractResponse(res: DefaultResponse): Response {
     return res instanceof Response ? res.clone() : res();
 }
 
-export class PBRequest extends Request {
-    readonly PBurl: string = this.url;
+export interface PBRequestOptions {
+    url?: string,
+    app?: PBApp
+}
 
-    static ify(req: Request, url?: string): PBRequest {
+export class PBRequest extends Request {
+    // @ts-ignore
+    readonly PBurl: string = null;
+    // @ts-ignore
+    readonly app: PBApp = null;
+
+    static ify(req: Request, options: PBRequestOptions = {}): PBRequest {
         const base = req.clone();
         Object.defineProperty(base, "PBurl", {
-            value: url || req.url,
+            value: options.url || req.url,
+            writable: false
+        });
+        Object.defineProperty(base, "app", {
+            value: options.app || PatchBay,
             writable: false
         });
         return base as PBRequest;
@@ -64,6 +79,75 @@ export interface Patchable {
     readonly route: Route;
 
     fetch(req: PBRequest): Promise<Response>;
+}
+
+export interface SessionHandlerOptions {
+    url?: string;
+    init?: boolean;
+}
+
+export class SessionHandler {
+    // @ts-ignore
+    private redis: RedisClient = null;
+    private readonly redisURL: string;
+
+    constructor(options: SessionHandlerOptions = {}) {
+        this.redisURL = options.url || "";
+        if (options.init !== false) this.connect();
+    }
+
+    connect() {
+        if (this.redis) {
+            this.redis.reconnect();
+            return;
+        }
+        this.redis = new RedisClient(this.redisURL);
+    }
+
+    getSession(req: Request, initField: string, initValue: string): Session {
+        let id: string = CookieHandler.parse(req)?.["session"] || uuid();
+
+        // the switch fallthrough is intentional!!
+        const redisType = this.redis.cmdTYPE(id);
+        switch (redisType) {
+            case "none":
+                this.redis.cmdHSET(id, initField, initValue);
+            case "hash":
+                return new Session(this.redis.cmdHGETALL(id) as ParameterStore, id, this.redis);
+            default:
+                throw new SessionError(`PatchBay: session key exists, but under wrong type {${redisType}}`)
+        }
+    }
+}
+
+export class Session {
+    private cache: ParameterStore;
+
+    constructor(source: ParameterStore,
+                public readonly id: string,
+                private readonly redis: RedisClient) {
+        this.cache = {...source};
+    }
+
+    set(key: string, value: string) {
+        this.cache[key] = value;
+    }
+
+    get(key: string): string | undefined {
+        return this.cache[key]
+    }
+
+    save() {
+        for (const key in this.cache) {
+            this.redis.cmdHSET(this.id, key, this.cache[key] as string)
+        }
+    }
+}
+
+export class SessionError extends Error {
+    constructor(msg: string) {
+        super(msg);
+    }
 }
 
 export interface CookieAttributes {
@@ -127,14 +211,14 @@ export class CookieHandler {
         let out: ParameterStore | undefined = undefined;
 
         for (const key in this.guts) {
-            if (this.guts[key] !== this.origin[key]){
+            if (this.guts[key] !== this.origin[key]) {
                 out = {};
             }
         }
-        if(!out) return undefined;
+        if (!out) return undefined;
 
         for (const key in this.guts) {
-            if (this.guts[key] !== this.origin[key]){
+            if (this.guts[key] !== this.origin[key]) {
                 out[key] = this.guts[key];
             }
         }
@@ -149,7 +233,7 @@ export class CookieHandler {
         this.origin = {};
     }
 
-    static strip(cookie: string): string | undefined  {
+    static strip(cookie: string): string | undefined {
         let matches = cookie.match(/^[^;]+/);
         if (!matches) return;
         if (matches?.length < 1) return;
@@ -208,6 +292,9 @@ export abstract class Patch<Data = void> implements Patchable {
     readonly __pbRequest: PBRequest = null;
     readonly cookies = new CookieHandler();
 
+    // @ts-ignore
+    readonly app: PBApp = null;
+
     private sendMutex = new Mutex();
 
     constructor(route: string) {
@@ -236,6 +323,11 @@ export abstract class Patch<Data = void> implements Patchable {
                 value: req,
                 writable: false
             });
+            Object.defineProperty(this, "app", {
+                value: req.app,
+                writable: false
+            });
+
             let data: Data;
             try {
                 data = await this.entry(req);
@@ -289,7 +381,7 @@ export class StaticPatch implements Patchable {
     }
 }
 
-export class GlobalRedirect implements Patchable{
+export class GlobalRedirect implements Patchable {
     readonly route: Route;
 
     constructor(route: string, private readonly to: string) {
@@ -350,9 +442,12 @@ export abstract class Router implements Patchable {
 
         for (const patchable of matchedPatchables) {
             if (patchable instanceof Patch
-            && await patchable.__safe_intercept(req)) continue;
+                && await patchable.__safe_intercept(req)) continue;
             try {
-                res = await patchable.fetch(PBRequest.ify(modifiedReq, rte));
+                res = await patchable.fetch(PBRequest.ify(modifiedReq, {
+                    url: rte,
+                    app: req.app,
+                }));
                 break;
             } catch (e) {
                 if (!(e instanceof RouteNotFound)) throw e;
@@ -441,7 +536,7 @@ export class RouteNotFound extends Error {
 export namespace Modifiers {
     export abstract class Entry {
         readonly cookies = new CookieHandler();
-        // add session handler here
+
         abstract fn(req: Request): Request | Promise<Request>;
     }
 
