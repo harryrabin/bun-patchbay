@@ -78,7 +78,7 @@ export class PBApp {
         try {
             return await this.mainRouter.fetch(PBRequest.ify(req, {
                 url: overrideURL,
-                app: this
+                app: this,
             }));
         } catch (e) {
             if (e instanceof RouteNotFound) return this.mainBay.responseNotFound ?

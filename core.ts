@@ -84,16 +84,22 @@ export interface Patchable {
 export interface SessionHandlerOptions {
     url?: string;
     init?: boolean;
+    ttl?: number;
 }
 
 export class SessionHandler {
     // @ts-ignore
     private redis: RedisClient = null;
     private readonly redisURL: string;
+    private readonly ttl: number;
+
+    private static sanitizer = /[0-9a-f-]+/;
 
     constructor(options: SessionHandlerOptions = {}) {
         this.redisURL = options.url || "";
         if (options.init !== false) this.connect();
+
+        this.ttl = options.ttl || 604_800;
     }
 
     connect() {
@@ -104,18 +110,27 @@ export class SessionHandler {
         this.redis = new RedisClient(this.redisURL);
     }
 
-    getSession(req: Request, initField: string, initValue: string): Session {
-        let id: string = CookieHandler.parse(req)?.["session"] || uuid();
+    getSession(req: Request, initField?: string, initValue?: string): Session {
+        let cookies = CookieHandler.parse(req);
+        let id: string;
+        if (cookies && cookies["session"]) {
+            id = cookies["session"]
+            if (!SessionHandler.sanitizer.test(id))
+                throw new SessionError("PatchBay Session: invalid key passed");
+        } else {
+            id = uuid();
+        }
 
         // the switch fallthrough is intentional!!
         const redisType = this.redis.cmdTYPE(id);
         switch (redisType) {
             case "none":
-                this.redis.cmdHSET(id, initField, initValue);
+                this.redis.cmdHSET(id, initField || "__placeholder", initValue || "__value");
+                this.redis.cmdEXPIRE(id, this.ttl);
             case "hash":
                 return new Session(this.redis.cmdHGETALL(id) as ParameterStore, id, this.redis);
             default:
-                throw new SessionError(`PatchBay: session key exists, but under wrong type {${redisType}}`)
+                throw new SessionError(`PatchBay Session: session key exists, but under wrong type {${redisType}}`)
         }
     }
 }
@@ -164,21 +179,6 @@ export class CookieHandler {
     private guts: ParameterStore = {};
     private origin: ParameterStore = {};
 
-    static parse(source: Request): ParameterStore | null {
-        let out: ParameterStore = {};
-
-        const rawHeader = source.headers.get("cookie");
-        if (!rawHeader) return null;
-
-        const cookies = rawHeader.split("; ").map($ => $.split("="));
-        for (const cookie of cookies) {
-            if (cookie.length !== 2) continue;
-            out[cookie[0]] = cookie[1];
-        }
-
-        return out;
-    }
-
     init(source: Request) {
         const origin = CookieHandler.parse(source);
         if (!origin) return;
@@ -207,25 +207,35 @@ export class CookieHandler {
 
     stringify(options: {
         secure?: boolean;
-    } = {}): string | undefined {
+    } = {}): string {
         let out: ParameterStore | undefined = undefined;
 
         for (const key in this.guts) {
             if (this.guts[key] !== this.origin[key]) {
                 out = {};
+                break;
             }
         }
-        if (!out) return undefined;
+        if (!out) return "";
 
         for (const key in this.guts) {
             if (this.guts[key] !== this.origin[key]) {
                 out[key] = this.guts[key];
             }
         }
-        const secure = options.secure !== undefined ? options.secure : true;
+
+        let secure = options.secure !== false;
+        if (process.env.PB_ENV === "dev") secure = false;
+
         let outString = JSON.stringify(out);
         if (secure) outString += "; Secure";
         return outString;
+    }
+
+    apply(res: Response, options: {
+        secure?: boolean;
+    } = {}) {
+        res.headers.set("Set-Cookie", "__PBCookie="+this.stringify(options));
     }
 
     __reset() {
@@ -240,43 +250,60 @@ export class CookieHandler {
         return matches[0];
     }
 
+    static parse(source: Request): ParameterStore | null {
+        let out: ParameterStore = {};
+
+        const rawHeader = source.headers.get("cookie");
+        if (!rawHeader) return null;
+
+        const cookies = rawHeader.split("; ").map($ => $.split("="));
+        for (const cookie of cookies) {
+            if (cookie.length !== 2) continue;
+            out[cookie[0]] = cookie[1];
+        }
+
+        return out;
+    }
+
     private static addAttributes(cookie: string, attributes: CookieAttributes): string {
         let out = cookie;
 
         if (attributes.expires instanceof Date) {
-            out += `; Expires=${attributes.expires.toUTCString()}`;
+            out += `|| Expires=${attributes.expires.toUTCString()}`;
         } else if (typeof attributes.expires == "number") {
-            out += `; Expires=${new Date(attributes.expires).toUTCString()}`
+            out += `|| Expires=${new Date(attributes.expires).toUTCString()}`
         } else if (typeof attributes.expires === "string") {
-            out += `; Expires=${attributes.expires}`;
+            out += `|| Expires=${attributes.expires}`;
         }
 
-        if (attributes.max_age) out += `; Max-Age=${attributes.max_age}`;
+        if (attributes.max_age) out += `|| Max-Age=${attributes.max_age}`;
 
-        if (attributes.domain) out += `; Domain=${attributes.domain}`;
+        if (attributes.domain) out += `|| Domain=${attributes.domain}`;
 
-        if (attributes.path) out += `; Path=${attributes.path}`;
+        if (attributes.path) out += `|| Path=${attributes.path}`;
 
-        let secure = attributes.secure;
+        let secure = attributes.secure !== false;
 
         switch (attributes.sameSite) {
             case undefined:
                 break;
             case "strict":
-                out += "; SameSite=Strict";
+                out += "|| SameSite=Strict";
                 break;
             case "lax":
-                out += "; SameSite=Lax";
+                out += "|| SameSite=Lax";
                 break;
             case "none":
-                out += "; SameSite=None"
+                out += "|| SameSite=None"
                 secure = true;
                 break;
         }
 
-        if (secure === true) out += "; Secure";
+        if (process.env.PB_ENV === "dev") secure = false;
 
-        if (attributes.httpOnly === true) out += "; HttpOnly";
+        if (secure) out += "|| Secure";
+
+        if (attributes.httpOnly) out += "|| HttpOnly";
 
         return out;
     }
