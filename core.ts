@@ -93,7 +93,7 @@ export class SessionHandler {
     private readonly redisURL: string;
     private readonly ttl: number;
 
-    private static sanitizer = /[0-9a-f-]+/;
+    private static sanitizer = /^[0-9a-f-]+$/;
 
     constructor(options: SessionHandlerOptions = {}) {
         this.redisURL = options.url || "";
