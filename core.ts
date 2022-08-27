@@ -113,8 +113,8 @@ export class SessionHandler {
     getSession(req: Request, initField?: string, initValue?: string): Session {
         let cookies = CookieHandler.parse(req);
         let id: string;
-        if (cookies && cookies["session"]) {
-            id = cookies["session"]
+        if (cookies && cookies["__session__"]) {
+            id = cookies["__session__"]
             if (!SessionHandler.sanitizer.test(id))
                 throw new SessionError("PatchBay Session: invalid key passed");
         } else {
@@ -200,6 +200,12 @@ export class CookieHandler {
         this.guts[key] = CookieHandler.addAttributes(value, attributes);
     }
 
+    setSession(id: string) {
+        this.set("__session__", id, {
+            path: "/"
+        });
+    }
+
     unset(key: string) {
         if (!this.guts[key]) return;
         this.guts[key] = 'undefined; Expires=Sat, 01 Jan 2000 00:00:00 GMT'
@@ -207,22 +213,15 @@ export class CookieHandler {
 
     stringify(options: {
         secure?: boolean;
-    } = {}): string {
-        let out: ParameterStore | undefined = undefined;
-
-        for (const key in this.guts) {
-            if (this.guts[key] !== this.origin[key]) {
-                out = {};
-                break;
-            }
-        }
-        if (!out) return "";
+    } = {}): string | null {
+        let out: ParameterStore = {};
 
         for (const key in this.guts) {
             if (this.guts[key] !== this.origin[key]) {
                 out[key] = this.guts[key];
             }
         }
+        if (Object.keys(out).length === 0) return null;
 
         let secure = options.secure !== false;
         if (process.env.PB_ENV === "dev") secure = false;
@@ -235,7 +234,10 @@ export class CookieHandler {
     apply(res: Response, options: {
         secure?: boolean;
     } = {}) {
-        res.headers.set("Set-Cookie", "__PBCookie="+this.stringify(options));
+        const cookie = this.stringify(options);
+        if (!cookie) return;
+
+        res.headers.set("Set-Cookie", "__PBCookie="+cookie);
     }
 
     __reset() {
