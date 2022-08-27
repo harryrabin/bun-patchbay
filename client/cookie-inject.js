@@ -6,9 +6,7 @@ const __updateFromPBCookie = (cookieString) => {
     if (!o) return;
     const e = JSON.parse(o.replace("__PBCookie=", ""));
     for (const k in e) {
-        let c = (k + "=" + e[k]).replaceAll("||", ";");
-        console.log(c);
-        document.cookie = c;
+        document.cookie = (k + "=" + e[k]).replaceAll("||", ";");
     }
     document.cookie = "__PBCookie=undefined; Expires=Sat, 01 Jan 2000 00:00:00 GMT"
 }
